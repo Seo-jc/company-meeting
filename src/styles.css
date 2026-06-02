@@ -20,7 +20,7 @@ html, body, #root {
 .version-bar {
   position: fixed;
   bottom: 12px;
-  right: 16px;
+  left: 16px;
   z-index: 200;
   display: inline-flex;
   align-items: center;
