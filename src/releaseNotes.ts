@@ -13,6 +13,14 @@ export type ReleaseNote = {
  */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '1.6.1',
+    date: '2026-06-02',
+    highlight: '디스크 공간 절약',
+    changed: [
+      '업데이트 적용 후 다운로드된 이전 버전 설치 파일을 자동으로 정리합니다 (약 80MB 절약)',
+    ],
+  },
+  {
     version: '1.6.0',
     date: '2026-06-02',
     highlight: '일부 기능 보완 및 디자인 개선',

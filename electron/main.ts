@@ -1,5 +1,7 @@
 import { app, BrowserWindow, ipcMain, desktopCapturer, session, dialog, shell } from 'electron';
 import { join } from 'path';
+import { promises as fsp } from 'fs';
+import * as os from 'os';
 import { autoUpdater } from 'electron-updater';
 
 const isDev = !app.isPackaged;
@@ -46,6 +48,73 @@ function createWindow(): void {
 }
 
 let pendingDownloadedVersion: string | null = null;
+
+/**
+ * Compare two SemVer strings. Returns >0 if a>b, <0 if a<b, 0 if equal.
+ * Only handles "x.y.z" format (no pre-release tags).
+ */
+function compareVersions(a: string, b: string): number {
+  const ap = a.split('.').map((n) => parseInt(n, 10) || 0);
+  const bp = b.split('.').map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < 3; i++) {
+    if ((ap[i] ?? 0) > (bp[i] ?? 0)) return 1;
+    if ((ap[i] ?? 0) < (bp[i] ?? 0)) return -1;
+  }
+  return 0;
+}
+
+/**
+ * Clean up update files left by electron-updater after a successful install.
+ * Files in the pending/ folder with version <= current app version are stale
+ * and can be safely deleted to free disk space (~80MB per file).
+ *
+ * Cache locations vary by app.name; we try both common candidates.
+ */
+async function cleanupOldUpdateFiles(): Promise<void> {
+  if (process.platform !== 'win32') return;
+  const localAppData =
+    process.env.LOCALAPPDATA || join(os.homedir(), 'AppData', 'Local');
+  const candidates = [
+    join(localAppData, `${app.name}-updater`, 'pending'),
+    join(localAppData, 'company-meeting-updater', 'pending'),
+    join(localAppData, 'CompanyMeeting-updater', 'pending'),
+  ];
+
+  const currentVersion = app.getVersion();
+  const seen = new Set<string>();
+
+  for (const dir of candidates) {
+    if (seen.has(dir)) continue;
+    seen.add(dir);
+    try {
+      const entries = await fsp.readdir(dir);
+      let removedCount = 0;
+      let removedBytes = 0;
+      for (const entry of entries) {
+        const match = entry.match(/Setup-(\d+\.\d+\.\d+)\.exe(\.blockmap)?$/i);
+        if (!match) continue;
+        const fileVersion = match[1];
+        if (compareVersions(fileVersion, currentVersion) > 0) continue;
+        const filePath = join(dir, entry);
+        try {
+          const stat = await fsp.stat(filePath);
+          await fsp.unlink(filePath);
+          removedCount += 1;
+          removedBytes += stat.size;
+          console.log('[cleanup] removed', entry);
+        } catch (err) {
+          console.warn('[cleanup] could not remove', entry, err);
+        }
+      }
+      if (removedCount > 0) {
+        const mb = (removedBytes / 1024 / 1024).toFixed(1);
+        console.log(`[cleanup] freed ${mb} MB (${removedCount} files) from ${dir}`);
+      }
+    } catch {
+      // Directory doesn't exist or unreadable; skip silently.
+    }
+  }
+}
 
 function setupAutoUpdater(): void {
   if (isDev) {
@@ -121,6 +190,14 @@ app.whenReady().then(() => {
 
   createWindow();
   setupAutoUpdater();
+
+  // Clean up old update files left behind by previous auto-updates.
+  // Delayed so it doesn't compete with startup work.
+  setTimeout(() => {
+    cleanupOldUpdateFiles().catch((err) => {
+      console.warn('[cleanup] failed:', err);
+    });
+  }, 8000);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
