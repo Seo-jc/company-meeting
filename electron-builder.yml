@@ -6,6 +6,12 @@ directories:
   output: release
   buildResources: build
 
+publish:
+  provider: github
+  owner: Seo-jc
+  repo: company-meeting
+  releaseType: release
+
 files:
   - dist/**/*
   - dist-electron/**/*
