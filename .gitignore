@@ -1,0 +1,11 @@
+node_modules/
+dist/
+dist-electron/
+release/
+.wrangler/
+*.log
+.DS_Store
+.env
+.env.local
+.vscode/
+.idea/

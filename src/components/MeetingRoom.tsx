@@ -1,0 +1,642 @@
+import { Fragment, ReactNode, useEffect, useRef, useState } from 'react';
+import { SignalingClient } from '../lib/signaling';
+import { ChatMessage, MeshConnection, RemotePeer } from '../lib/webrtc';
+import {
+  getMicrophone,
+  getScreenShareBrowser,
+  getScreenShareElectron,
+} from '../lib/media';
+import { getStoredMicId, getStoredSpeakerId } from './AudioDevices';
+import SourcePicker from './SourcePicker';
+import ChatPanel from './ChatPanel';
+import ChatTab from './ChatTab';
+import Logo from './Logo';
+import AudioSettingsPopover from './AudioSettingsPopover';
+
+type Props = {
+  roomCode: string;
+  displayName: string;
+  meetingTitle?: string;
+  onLeave: () => void;
+};
+
+type Status = 'connecting' | 'connected' | 'error';
+
+const SELF_ID = '__self__';
+const SCREEN_SELF_ID = '__screen_self__';
+
+const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
+
+export default function MeetingRoom({
+  roomCode,
+  displayName,
+  meetingTitle,
+  onLeave,
+}: Props) {
+  const [peers, setPeers] = useState<RemotePeer[]>([]);
+  const [muted, setMuted] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [showPicker, setShowPicker] = useState(false);
+  const [status, setStatus] = useState<Status>('connecting');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  // Right (chat) panel state
+  const [chatOpen, setChatOpen] = useState(false);
+  const [showAudioPopover, setShowAudioPopover] = useState(false);
+
+  // Chat
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [lastReadChatIndex, setLastReadChatIndex] = useState(0);
+
+  const [myId, setMyId] = useState<string>('');
+  const [meetingStartTs] = useState(Date.now());
+
+  const meshRef = useRef<MeshConnection | null>(null);
+  const signalingRef = useRef<SignalingClient | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
+
+  const unreadChat = chatOpen ? 0 : messages.length - lastReadChatIndex;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const localStream = await getMicrophone(getStoredMicId());
+        if (cancelled) {
+          localStream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        localStreamRef.current = localStream;
+
+        const signaling = new SignalingClient();
+        signalingRef.current = signaling;
+        const generatedId = crypto.randomUUID();
+        setMyId(generatedId);
+
+        await signaling.connect(roomCode, generatedId, displayName);
+        if (cancelled) {
+          signaling.close();
+          localStream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+
+        const mesh = new MeshConnection(
+          localStream,
+          signaling,
+          generatedId,
+          displayName,
+          {
+            onPeerUpdate: (peer) =>
+              setPeers((prev) => {
+                if (prev.find((p) => p.peerId === peer.peerId)) {
+                  return prev.map((p) =>
+                    p.peerId === peer.peerId ? peer : p
+                  );
+                }
+                return [...prev, peer];
+              }),
+            onPeerLeft: (peerId) =>
+              setPeers((prev) => prev.filter((p) => p.peerId !== peerId)),
+            onSync: (validPeerIds) => {
+              const valid = new Set(validPeerIds);
+              setPeers((prev) => prev.filter((p) => valid.has(p.peerId)));
+            },
+            onChat: (msg) => {
+              setMessages((prev) => [...prev, msg]);
+            },
+          }
+        );
+        meshRef.current = mesh;
+        setStatus('connected');
+      } catch (e) {
+        setErrorMsg(e instanceof Error ? e.message : '연결에 실패했습니다');
+        setStatus('error');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      meshRef.current?.close();
+      signalingRef.current?.close();
+      localStreamRef.current?.getTracks().forEach((t) => t.stop());
+    };
+  }, [roomCode, displayName]);
+
+  useEffect(() => {
+    if (!screenStream) return;
+    const videoTrack = screenStream.getVideoTracks()[0];
+    if (!videoTrack) return;
+    const onEnded = () => {
+      meshRef.current?.stopScreenShare();
+      setScreenStream(null);
+      setSharing(false);
+    };
+    videoTrack.addEventListener('ended', onEnded);
+    return () => videoTrack.removeEventListener('ended', onEnded);
+  }, [screenStream]);
+
+  useEffect(() => {
+    if (!expandedId) return;
+    if (expandedId === SELF_ID) return;
+    if (expandedId === SCREEN_SELF_ID) {
+      if (!screenStream) setExpandedId(null);
+      return;
+    }
+    if (!peers.find((p) => p.peerId === expandedId)) {
+      setExpandedId(null);
+    }
+  }, [expandedId, peers, screenStream]);
+
+  // Mark chat as read when chat panel is open
+  useEffect(() => {
+    if (chatOpen) {
+      setLastReadChatIndex(messages.length);
+    }
+  }, [chatOpen, messages.length]);
+
+  const toggleExpand = (id: string) => {
+    setExpandedId((prev) => (prev === id ? null : id));
+  };
+
+  const toggleMute = () => {
+    const track = localStreamRef.current?.getAudioTracks()[0];
+    if (!track) return;
+    const newMuted = !muted;
+    track.enabled = !newMuted;
+    setMuted(newMuted);
+    meshRef.current?.setMuted(newMuted);
+  };
+
+  const handleMicSwitch = async (deviceId: string) => {
+    try {
+      const newStream = await getMicrophone(deviceId || null);
+      const newTrack = newStream.getAudioTracks()[0];
+      if (!newTrack) return;
+      await meshRef.current?.replaceAudioTrack(newTrack);
+      const oldStream = localStreamRef.current;
+      oldStream?.getAudioTracks().forEach((t) => t.stop());
+      const newLocalStream = new MediaStream([
+        newTrack,
+        ...(oldStream?.getVideoTracks() ?? []),
+      ]);
+      localStreamRef.current = newLocalStream;
+      newTrack.enabled = !muted;
+    } catch (e) {
+      console.error('[mic-switch] failed', e);
+    }
+  };
+
+  const handleSpeakerSwitch = (deviceId: string) => {
+    const audios = document.querySelectorAll<HTMLAudioElement>(
+      '.tile audio, .right-panel audio'
+    );
+    audios.forEach((a) => {
+      if ('setSinkId' in a) {
+        (a as any).setSinkId(deviceId || '').catch(() => {});
+      }
+    });
+  };
+
+  const startSharing = async (stream: MediaStream) => {
+    await meshRef.current?.startScreenShare(stream);
+    setScreenStream(stream);
+    setSharing(true);
+    setShareError(null);
+  };
+
+  const reportShareError = (e: unknown) => {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (!/permission denied|aborted|not allowed|cancel|abort/i.test(msg)) {
+      setShareError('화면 공유 실패: ' + msg);
+      setTimeout(() => setShareError(null), 6000);
+    }
+  };
+
+  const toggleScreenShare = async () => {
+    if (sharing) {
+      await meshRef.current?.stopScreenShare();
+      screenStream?.getTracks().forEach((t) => t.stop());
+      setScreenStream(null);
+      setSharing(false);
+      return;
+    }
+
+    if (isElectron) {
+      setShowPicker(true);
+      return;
+    }
+
+    try {
+      const stream = await getScreenShareBrowser();
+      await startSharing(stream);
+    } catch (e) {
+      reportShareError(e);
+    }
+  };
+
+  const handlePickSource = async (sourceId: string) => {
+    setShowPicker(false);
+    try {
+      const stream = await getScreenShareElectron(sourceId);
+      await startSharing(stream);
+    } catch (e) {
+      reportShareError(e);
+    }
+  };
+
+  const sendChat = (text: string) => {
+    if (!meshRef.current || !myId) return;
+    const localMsg: ChatMessage = {
+      from: myId,
+      fromName: displayName,
+      text,
+      ts: Date.now(),
+    };
+    setMessages((prev) => [...prev, localMsg]);
+    meshRef.current.sendChat(text, displayName);
+  };
+
+  const copyCode = async () => {
+    let success = false;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(roomCode);
+        success = true;
+      }
+    } catch (err) {
+      console.warn('[copy] navigator.clipboard failed, trying fallback', err);
+    }
+    if (!success) {
+      try {
+        const textArea = document.createElement('textarea');
+        textArea.value = roomCode;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-9999px';
+        textArea.setAttribute('readonly', '');
+        document.body.appendChild(textArea);
+        textArea.select();
+        textArea.setSelectionRange(0, roomCode.length);
+        success = document.execCommand('copy');
+        document.body.removeChild(textArea);
+      } catch (err) {
+        console.error('[copy] fallback failed', err);
+      }
+    }
+    if (success) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }
+  };
+
+  if (status === 'error') {
+    return (
+      <div className="centered">
+        <div className="card">
+          <h2>연결 실패</h2>
+          <p className="error-text">{errorMsg}</p>
+          <button className="btn" onClick={onLeave}>로비로 돌아가기</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === 'connecting') {
+    return (
+      <div className="centered">
+        <div className="card">
+          <h2>회의에 연결 중...</h2>
+          <p className="subtitle">마이크 권한을 허용해 주세요</p>
+        </div>
+      </div>
+    );
+  }
+
+  const tiles: Array<{ id: string; node: ReactNode }> = [];
+  tiles.push({
+    id: SELF_ID,
+    node: (
+      <SelfTile
+        name={displayName}
+        muted={muted}
+        focused={expandedId === SELF_ID}
+        onDoubleClick={() => toggleExpand(SELF_ID)}
+      />
+    ),
+  });
+  if (screenStream) {
+    tiles.push({
+      id: SCREEN_SELF_ID,
+      node: (
+        <SelfScreenTile
+          stream={screenStream}
+          focused={expandedId === SCREEN_SELF_ID}
+          onDoubleClick={() => toggleExpand(SCREEN_SELF_ID)}
+        />
+      ),
+    });
+  }
+  for (const peer of peers) {
+    tiles.push({
+      id: peer.peerId,
+      node: (
+        <PeerTile
+          peer={peer}
+          focused={expandedId === peer.peerId}
+          onDoubleClick={() => toggleExpand(peer.peerId)}
+        />
+      ),
+    });
+  }
+
+  const focusedTile = expandedId
+    ? tiles.find((t) => t.id === expandedId)
+    : null;
+  const otherTiles = expandedId
+    ? tiles.filter((t) => t.id !== expandedId)
+    : tiles;
+
+  return (
+    <div className={`meeting ${chatOpen ? 'chat-open' : ''}`}>
+      <header className="meeting-header">
+        <div className="meeting-header-brand">
+          <Logo size="sm" showWordmark={false} />
+          <MeetingTime startTs={meetingStartTs} />
+        </div>
+        {meetingTitle && (
+          <div className="meeting-title-display" title={meetingTitle}>
+            {meetingTitle}
+          </div>
+        )}
+        <div className="meeting-header-right">
+          <div className="room-info">
+            <span className="label">회의 코드</span>
+            <button
+              className="code-pill"
+              onClick={copyCode}
+              title="클릭해서 복사"
+            >
+              <span className="code-text">{roomCode}</span>
+              <span className="copy-icon" aria-hidden="true">
+                {copied ? (
+                  <svg viewBox="0 0 24 24" width="16" height="16">
+                    <path
+                      fill="currentColor"
+                      d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"
+                    />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" width="16" height="16">
+                    <path
+                      fill="currentColor"
+                      d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"
+                    />
+                  </svg>
+                )}
+              </span>
+              <span className="copy-label">{copied ? '복사됨' : '복사'}</span>
+            </button>
+          </div>
+          <div className="participant-count">참가자 {peers.length + 1}명</div>
+        </div>
+      </header>
+
+      {shareError && <div className="banner banner-error">{shareError}</div>}
+
+      <main className={`meeting-area ${expandedId ? 'has-focus' : ''}`}>
+        {focusedTile && (
+          <section className="focus-area" key={focusedTile.id}>
+            {focusedTile.node}
+          </section>
+        )}
+        <section className={expandedId ? 'thumbnails' : 'meeting-grid'}>
+          {otherTiles.map((t) => (
+            <Fragment key={t.id}>{t.node}</Fragment>
+          ))}
+        </section>
+      </main>
+
+      <footer className="control-bar">
+        <div className="control-item control-item-mic">
+          <button
+            className={`audio-chevron ${showAudioPopover ? 'open' : ''}`}
+            onClick={() => setShowAudioPopover((v) => !v)}
+            title="오디오 장치 설정"
+            aria-label="오디오 장치 설정"
+          >
+            <svg width="12" height="8" viewBox="0 0 12 8" aria-hidden="true">
+              <path
+                d="M1.5 6.5 L6 2 L10.5 6.5"
+                stroke="currentColor"
+                strokeWidth="2"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+          <button
+            className={`btn-circle ${muted ? 'btn-danger' : ''}`}
+            onClick={toggleMute}
+            title={muted ? '음소거 해제' : '음소거'}
+          >
+            {muted ? '🔇' : '🎤'}
+          </button>
+          <span className="control-label">{muted ? '음소거 해제' : '음소거'}</span>
+          {showAudioPopover && (
+            <AudioSettingsPopover
+              onClose={() => setShowAudioPopover(false)}
+              onMicChange={handleMicSwitch}
+              onSpeakerChange={handleSpeakerSwitch}
+            />
+          )}
+        </div>
+        <div className="control-item">
+          <button
+            className={`btn-circle ${sharing ? 'btn-active' : ''}`}
+            onClick={toggleScreenShare}
+            title={sharing ? '화면 공유 중지' : '화면 공유'}
+          >
+            🖥️
+          </button>
+          <span className="control-label">{sharing ? '공유 중지' : '화면 공유'}</span>
+        </div>
+        <div className="control-item">
+          <button
+            className={`btn-circle ${chatOpen ? 'btn-active' : ''}`}
+            onClick={() => setChatOpen((v) => !v)}
+            title={chatOpen ? '채팅 닫기' : '채팅 열기'}
+          >
+            💬
+            {unreadChat > 0 && (
+              <span className="badge-count">
+                {unreadChat > 99 ? '99+' : unreadChat}
+              </span>
+            )}
+          </button>
+          <span className="control-label">채팅</span>
+        </div>
+        <div className="control-item">
+          <button className="btn-circle btn-leave" onClick={onLeave} title="나가기">
+            📞
+          </button>
+          <span className="control-label">나가기</span>
+        </div>
+      </footer>
+
+      {chatOpen && (
+        <ChatPanel onClose={() => setChatOpen(false)}>
+          <ChatTab messages={messages} myId={myId} onSend={sendChat} />
+        </ChatPanel>
+      )}
+
+      {showPicker && (
+        <SourcePicker
+          onPick={handlePickSource}
+          onCancel={() => setShowPicker(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function MeetingTime({ startTs }: { startTs: number }) {
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const timeStr = new Date(now).toLocaleTimeString('ko-KR', {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+
+  const elapsedSec = Math.max(0, Math.floor((now - startTs) / 1000));
+  const hh = Math.floor(elapsedSec / 3600);
+  const mm = Math.floor((elapsedSec % 3600) / 60);
+  const ss = elapsedSec % 60;
+  const elapsedStr =
+    hh > 0
+      ? `${hh}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`
+      : `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
+
+  return (
+    <div className="meeting-time" title="현재 시간 · 회의 진행 시간">
+      <span className="time-now">{timeStr}</span>
+      <span className="time-divider">·</span>
+      <span className="time-elapsed">⏱ {elapsedStr}</span>
+    </div>
+  );
+}
+
+function SelfTile({
+  name,
+  muted,
+  focused,
+  onDoubleClick,
+}: {
+  name: string;
+  muted: boolean;
+  focused?: boolean;
+  onDoubleClick?: () => void;
+}) {
+  return (
+    <div
+      className={`tile tile-self ${focused ? 'tile-focused' : ''}`}
+      onDoubleClick={onDoubleClick}
+      title="더블클릭으로 확대"
+    >
+      <div className="tile-avatar">{name.slice(0, 1).toUpperCase()}</div>
+      <div className="tile-name">
+        {name} (나) {muted && <span className="muted-badge">음소거</span>}
+      </div>
+    </div>
+  );
+}
+
+function SelfScreenTile({
+  stream,
+  focused,
+  onDoubleClick,
+}: {
+  stream: MediaStream;
+  focused?: boolean;
+  onDoubleClick?: () => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.srcObject = stream;
+  }, [stream]);
+
+  return (
+    <div
+      className={`tile tile-screen-preview ${focused ? 'tile-focused' : ''}`}
+      onDoubleClick={onDoubleClick}
+      title="더블클릭으로 확대"
+    >
+      <video ref={videoRef} autoPlay playsInline muted />
+      <div className="tile-name">내 화면 (공유 중)</div>
+    </div>
+  );
+}
+
+function PeerTile({
+  peer,
+  focused,
+  onDoubleClick,
+}: {
+  peer: RemotePeer;
+  focused?: boolean;
+  onDoubleClick?: () => void;
+}) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [hasVideo, setHasVideo] = useState(false);
+
+  useEffect(() => {
+    if (audioRef.current && audioRef.current.srcObject !== peer.stream) {
+      audioRef.current.srcObject = peer.stream;
+    }
+    const sinkId = getStoredSpeakerId();
+    if (sinkId && audioRef.current && 'setSinkId' in audioRef.current) {
+      (audioRef.current as any).setSinkId(sinkId).catch(() => {});
+    }
+  }, [peer.stream]);
+
+  useEffect(() => {
+    const videoTracks = peer.stream.getVideoTracks();
+    setHasVideo(videoTracks.length > 0);
+  }, [peer]);
+
+  useEffect(() => {
+    if (videoRef.current && hasVideo) {
+      videoRef.current.srcObject = peer.stream;
+    }
+  }, [hasVideo, peer.stream]);
+
+  return (
+    <div
+      className={`tile ${focused ? 'tile-focused' : ''}`}
+      onDoubleClick={onDoubleClick}
+      title="더블클릭으로 확대"
+    >
+      <audio ref={audioRef} autoPlay />
+      {hasVideo ? (
+        <video ref={videoRef} autoPlay playsInline muted />
+      ) : (
+        <div className="tile-avatar">{peer.displayName.slice(0, 1).toUpperCase()}</div>
+      )}
+      <div className="tile-name">
+        {peer.displayName}
+        {peer.muted && <span className="muted-badge">음소거</span>}
+      </div>
+    </div>
+  );
+}
