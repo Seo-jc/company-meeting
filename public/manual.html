@@ -43,17 +43,15 @@
       gap: 1.5rem;
     }
     .cover-logo {
-      width: 120px;
-      height: 120px;
-      border-radius: 24px;
-      background: #1abc9c;
+      width: 140px;
+      height: 140px;
+      box-shadow: 0 8px 32px rgba(148, 163, 184, 0.25);
+      border-radius: 28px;
+      overflow: hidden;
       display: grid;
       place-items: center;
-      color: #fff;
-      font-size: 56px;
-      font-weight: 700;
-      box-shadow: 0 8px 32px rgba(26, 188, 156, 0.4);
     }
+    .cover-logo svg { width: 100%; height: 100%; display: block; }
     .cover h1 {
       font-size: 36pt;
       font-weight: 800;
@@ -267,7 +265,29 @@
 
   <!-- ============ COVER ============ -->
   <section class="page cover">
-    <div class="cover-logo">사</div>
+    <div class="cover-logo">
+      <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="manual-silver" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#f8fafc"/>
+            <stop offset="30%" stop-color="#cbd5e1"/>
+            <stop offset="55%" stop-color="#f1f5f9"/>
+            <stop offset="80%" stop-color="#94a3b8"/>
+            <stop offset="100%" stop-color="#475569"/>
+          </linearGradient>
+          <linearGradient id="manual-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#1a1d23"/>
+            <stop offset="100%" stop-color="#0d1117"/>
+          </linearGradient>
+        </defs>
+        <rect x="6" y="6" width="188" height="188" rx="34" fill="url(#manual-bg)" stroke="#475569" stroke-width="1.2"/>
+        <g fill="none" stroke="url(#manual-silver)" stroke-width="15" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M 135 35 C 75 30 70 65 110 75 C 150 85 130 115 70 110"/>
+          <path d="M 105 75 L 105 130 Q 105 150 85 148"/>
+          <path d="M 160 110 Q 100 105 95 145 Q 95 175 165 175"/>
+        </g>
+      </svg>
+    </div>
     <h1>사내 미팅 프로그램</h1>
     <p class="subtitle">사용자 메뉴얼</p>
     <div class="meta">
