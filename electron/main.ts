@@ -143,3 +143,4 @@ ipcMain.handle('open-mic-settings', async () => {
     await shell.openExternal('https://support.google.com/chrome/answer/2693767');
   }
 });
+

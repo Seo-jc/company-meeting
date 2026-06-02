@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Logo from './Logo';
 import AudioDevices from './AudioDevices';
+import Manual from './Manual';
 
 const SIGNALING_HTTP_BASE =
   (import.meta as any).env?.VITE_SIGNALING_URL?.replace(
@@ -72,6 +73,7 @@ export default function Lobby({ onJoin }: Props) {
   const [newMeetingName, setNewMeetingName] = useState('');
   const [newMeetingCode, setNewMeetingCode] = useState('');
   const [error, setError] = useState('');
+  const [showManual, setShowManual] = useState(false);
   const cancelledRef = useRef(false);
 
   useEffect(() => {
@@ -272,6 +274,15 @@ export default function Lobby({ onJoin }: Props) {
             참가
           </button>
         </div>
+
+        <button
+          type="button"
+          className="lobby-manual-btn"
+          onClick={() => setShowManual(true)}
+          title="사용자 메뉴얼을 봅니다"
+        >
+          📖 사용자 메뉴얼
+        </button>
       </div>
 
       <div className="lobby-right">
@@ -392,6 +403,7 @@ export default function Lobby({ onJoin }: Props) {
       </aside>
       <AudioDevices />
       </div>
+      {showManual && <Manual onClose={() => setShowManual(false)} />}
     </div>
   );
 }

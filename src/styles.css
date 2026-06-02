@@ -452,6 +452,144 @@ input {
   font-size: 0.78rem;
 }
 
+.lobby-manual-btn {
+  margin-top: 0.4rem;
+  background: transparent;
+  border: 1px dashed #353a44;
+  color: #a0a4ad;
+  padding: 0.55rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+.lobby-manual-btn:hover {
+  border-color: #1abc9c;
+  color: #1abc9c;
+  background: rgba(26, 188, 156, 0.05);
+}
+
+/* ---------- Manual Modal ---------- */
+.manual-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  animation: manual-fade-in 0.15s ease-out;
+}
+
+@keyframes manual-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.manual-modal {
+  background: #1a1d23;
+  border: 1px solid #2a2e36;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 900px;
+  height: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+}
+
+.manual-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.25rem;
+  border-bottom: 1px solid #2a2e36;
+  background: #15171c;
+  flex-shrink: 0;
+}
+
+.manual-header h2 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #e8e8ea;
+  margin: 0;
+}
+
+.manual-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-small {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  background: #2a2e36;
+  color: #e8e8ea;
+  border: 1px solid #353a44;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-small:hover {
+  background: #353a44;
+  border-color: #1abc9c;
+  color: #1abc9c;
+}
+
+.manual-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: #a0a4ad;
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: all 0.15s ease;
+}
+
+.manual-close:hover {
+  background: #2a2e36;
+  color: #ef6868;
+}
+
+.manual-body {
+  flex: 1;
+  position: relative;
+  background: #fff;
+  overflow: hidden;
+}
+
+.manual-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+.manual-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #6b7280;
+  font-size: 0.9rem;
+  background: #fff;
+  z-index: 1;
+}
+
 .code-input {
   padding: 0.65rem 0.85rem;
   border: 1px solid #353a44;

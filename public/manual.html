@@ -1,0 +1,634 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>사내 미팅 프로그램 사용자 메뉴얼</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 0;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    html, body {
+      font-family: 'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+      color: #1f2329;
+      line-height: 1.65;
+      font-size: 11pt;
+      background: #fff;
+    }
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      padding: 22mm 20mm;
+      page-break-after: always;
+      position: relative;
+    }
+    .page:last-child { page-break-after: auto; }
+
+    /* Cover */
+    .cover {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      background: linear-gradient(135deg, #0d1117 0%, #1f2937 100%);
+      color: #fff;
+      gap: 1.5rem;
+    }
+    .cover-logo {
+      width: 120px;
+      height: 120px;
+      border-radius: 24px;
+      background: #1abc9c;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-size: 56px;
+      font-weight: 700;
+      box-shadow: 0 8px 32px rgba(26, 188, 156, 0.4);
+    }
+    .cover h1 {
+      font-size: 36pt;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-top: 1rem;
+    }
+    .cover .subtitle {
+      font-size: 18pt;
+      color: #1abc9c;
+      font-weight: 600;
+    }
+    .cover .meta {
+      margin-top: 3rem;
+      color: #9aa0a8;
+      font-size: 11pt;
+    }
+    .cover .meta strong { color: #fff; font-weight: 600; }
+
+    /* Headings */
+    h1.section-title {
+      font-size: 22pt;
+      font-weight: 800;
+      color: #0d1117;
+      padding-bottom: 0.6rem;
+      border-bottom: 3px solid #1abc9c;
+      margin-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 14pt;
+      font-weight: 700;
+      color: #0d1117;
+      margin-top: 1.6rem;
+      margin-bottom: 0.6rem;
+    }
+    h3 {
+      font-size: 11.5pt;
+      font-weight: 700;
+      color: #1f2937;
+      margin-top: 1rem;
+      margin-bottom: 0.4rem;
+    }
+
+    /* Body text */
+    p { margin: 0.4rem 0; }
+    strong { color: #0d1117; font-weight: 700; }
+    ul, ol { padding-left: 1.4rem; margin: 0.4rem 0; }
+    li { margin: 0.25rem 0; }
+
+    /* TOC */
+    .toc {
+      list-style: none;
+      padding-left: 0;
+    }
+    .toc li {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.55rem 0;
+      border-bottom: 1px dotted #d0d4dc;
+    }
+    .toc li .num {
+      color: #1abc9c;
+      font-weight: 700;
+      width: 2.2rem;
+    }
+    .toc li .name { flex: 1; }
+    .toc li .page-num { color: #6b7280; }
+
+    /* Callouts */
+    .note, .warn, .tip {
+      padding: 0.85rem 1rem;
+      border-radius: 6px;
+      margin: 0.8rem 0;
+      font-size: 10.5pt;
+      line-height: 1.55;
+    }
+    .note {
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      color: #1e3a8a;
+    }
+    .warn {
+      background: #fef2f2;
+      border-left: 4px solid #ef4444;
+      color: #991b1b;
+    }
+    .tip {
+      background: #ecfdf5;
+      border-left: 4px solid #1abc9c;
+      color: #065f46;
+    }
+    .note strong, .warn strong, .tip strong { color: inherit; }
+
+    /* Steps */
+    .steps {
+      counter-reset: step;
+      list-style: none;
+      padding-left: 0;
+    }
+    .steps > li {
+      counter-increment: step;
+      padding-left: 2.2rem;
+      position: relative;
+      margin: 0.7rem 0;
+      min-height: 1.7rem;
+    }
+    .steps > li::before {
+      content: counter(step);
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1.7rem;
+      height: 1.7rem;
+      border-radius: 50%;
+      background: #1abc9c;
+      color: #fff;
+      font-weight: 700;
+      display: grid;
+      place-items: center;
+      font-size: 10pt;
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0.6rem 0 1rem;
+      font-size: 10pt;
+    }
+    th, td {
+      border: 1px solid #d0d4dc;
+      padding: 0.5rem 0.7rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #f3f4f6;
+      font-weight: 700;
+      color: #0d1117;
+    }
+
+    /* Key labels (button names, UI labels) */
+    .kbd, .btn-label {
+      display: inline-block;
+      padding: 0.05rem 0.45rem;
+      border-radius: 4px;
+      font-family: 'Consolas', 'D2Coding', monospace;
+      font-size: 9.5pt;
+      background: #f3f4f6;
+      border: 1px solid #d0d4dc;
+      color: #1f2937;
+      font-weight: 600;
+    }
+
+    /* Footer (page number) */
+    .page-footer {
+      position: absolute;
+      bottom: 12mm;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 9pt;
+      color: #9aa0a8;
+    }
+    .page-footer .brand {
+      color: #1abc9c;
+      font-weight: 600;
+    }
+
+    /* Icon list */
+    .icon-list {
+      list-style: none;
+      padding-left: 0;
+    }
+    .icon-list li {
+      padding: 0.4rem 0;
+      display: flex;
+      gap: 0.8rem;
+      align-items: flex-start;
+    }
+    .icon-list .ico {
+      font-size: 16pt;
+      width: 1.8rem;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .icon-list .body { flex: 1; }
+    .icon-list .body strong { display: block; margin-bottom: 0.2rem; }
+
+    /* FAQ */
+    .faq-q {
+      font-weight: 700;
+      color: #0d1117;
+      margin-top: 1rem;
+    }
+    .faq-q::before {
+      content: 'Q. ';
+      color: #1abc9c;
+    }
+    .faq-a {
+      margin-top: 0.3rem;
+      color: #374151;
+    }
+    .faq-a::before {
+      content: 'A. ';
+      color: #6b7280;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ============ COVER ============ -->
+  <section class="page cover">
+    <div class="cover-logo">사</div>
+    <h1>사내 미팅 프로그램</h1>
+    <p class="subtitle">사용자 메뉴얼</p>
+    <div class="meta">
+      <p>개발 <strong>서정천</strong></p>
+      <p style="margin-top: 1rem; font-size: 9pt; opacity: 0.7;">현재 사용 중인 버전은 앱 좌측 하단을 확인해 주세요.</p>
+    </div>
+  </section>
+
+  <!-- ============ TOC ============ -->
+  <section class="page">
+    <h1 class="section-title">목차</h1>
+    <ul class="toc">
+      <li><span class="num">1.</span><span class="name">프로그램 소개</span><span class="page-num">3</span></li>
+      <li><span class="num">2.</span><span class="name">시작하기 (설치 및 첫 실행)</span><span class="page-num">3</span></li>
+      <li><span class="num">3.</span><span class="name">로비 화면 둘러보기</span><span class="page-num">4</span></li>
+      <li><span class="num">4.</span><span class="name">회의 참여하기</span><span class="page-num">5</span></li>
+      <li><span class="num">5.</span><span class="name">회의 화면 사용법</span><span class="page-num">6</span></li>
+      <li><span class="num">6.</span><span class="name">오디오 장치 설정</span><span class="page-num">8</span></li>
+      <li><span class="num">7.</span><span class="name">듣기 전용 모드</span><span class="page-num">8</span></li>
+      <li><span class="num">8.</span><span class="name">자동 업데이트</span><span class="page-num">9</span></li>
+      <li><span class="num">9.</span><span class="name">문제 해결</span><span class="page-num">9</span></li>
+      <li><span class="num">10.</span><span class="name">자주 묻는 질문 (FAQ)</span><span class="page-num">10</span></li>
+    </ul>
+
+    <div class="tip" style="margin-top: 2.5rem;">
+      <strong>💡 본 메뉴얼의 활용</strong><br>
+      이 메뉴얼은 처음 사용하시는 분도 따라할 수 있도록 단계별로 구성되어 있습니다. 화면 캡처와 함께 설명되어 있어 빠르게 익히실 수 있습니다.
+    </div>
+
+    <div class="page-footer">
+      사내 미팅 프로그램 사내 미팅 프로그램 · <span class="brand">개발: 서정천</span>
+    </div>
+  </section>
+
+  <!-- ============ 1. INTRO ============ -->
+  <section class="page">
+    <h1 class="section-title">1. 프로그램 소개</h1>
+    <p><strong>사내 미팅 프로그램</strong>은 회사 구성원들이 별도의 외부 서비스 가입 없이 사내에서 빠르고 안전하게 화상회의를 진행할 수 있도록 만든 전용 프로그램입니다.</p>
+
+    <h2>주요 기능</h2>
+    <ul class="icon-list">
+      <li><span class="ico">🎤</span><div class="body"><strong>음성 회의</strong>P2P 방식으로 다수의 참가자가 동시에 대화 가능합니다.</div></li>
+      <li><span class="ico">🖥️</span><div class="body"><strong>화면 공유</strong>전체 화면 또는 특정 창을 선택해서 공유할 수 있습니다.</div></li>
+      <li><span class="ico">💬</span><div class="body"><strong>실시간 채팅</strong>회의 중에 텍스트 메시지를 주고받을 수 있습니다.</div></li>
+      <li><span class="ico">🎧</span><div class="body"><strong>듣기 전용 모드</strong>마이크가 없는 PC에서도 채팅과 듣기로 참여 가능합니다.</div></li>
+      <li><span class="ico">📋</span><div class="body"><strong>회의 코드 시스템</strong>4~10자리 영문/숫자 코드로 간편하게 입장합니다.</div></li>
+      <li><span class="ico">📌</span><div class="body"><strong>저장된 미팅</strong>자주 사용하는 회의방을 저장해 두고 빠르게 입장할 수 있습니다.</div></li>
+      <li><span class="ico">🔄</span><div class="body"><strong>자동 업데이트</strong>새 버전이 출시되면 앱이 알아서 다운로드 및 설치합니다.</div></li>
+    </ul>
+
+    <h2 style="margin-top: 1.4rem;">시스템 요구사항</h2>
+    <table>
+      <tr><th>운영체제</th><td>Windows 10 이상 (64bit)</td></tr>
+      <tr><th>메모리</th><td>최소 2GB, 권장 4GB</td></tr>
+      <tr><th>인터넷</th><td>유선/무선 모두 가능 (최소 1Mbps 이상 권장)</td></tr>
+      <tr><th>마이크</th><td>일반 PC 내장 마이크 또는 USB/3.5mm 외장 마이크</td></tr>
+      <tr><th>스피커</th><td>스피커 또는 헤드폰</td></tr>
+    </table>
+
+    <h1 class="section-title" style="margin-top: 2rem;">2. 시작하기</h1>
+    <h2>설치</h2>
+    <ol class="steps">
+      <li>회사에서 받은 <span class="kbd">CompanyMeeting-Setup-X.X.X.exe</span> 파일을 더블클릭합니다.</li>
+      <li>Windows SmartScreen 경고가 표시되면 <strong>"추가 정보"</strong> → <strong>"실행"</strong>을 차례로 클릭합니다.</li>
+      <li>설치 마법사 안내에 따라 설치 경로를 선택하고 <strong>"설치"</strong> 버튼을 누릅니다.</li>
+      <li>설치가 완료되면 바탕화면과 시작 메뉴에 <strong>"사내 회의"</strong> 단축 아이콘이 생성됩니다.</li>
+    </ol>
+
+    <div class="note">
+      <strong>SmartScreen 경고에 대하여</strong><br>
+      회사 전용 프로그램이라 코드 서명 인증서를 별도로 적용하지 않았습니다. 회사 PC가 아닌 곳에서 다운로드한 게 아닌 한 안전합니다.
+    </div>
+
+    <div class="page-footer">
+      사내 미팅 프로그램 사내 미팅 프로그램 · <span class="brand">개발: 서정천</span>
+    </div>
+  </section>
+
+  <!-- ============ 3. LOBBY ============ -->
+  <section class="page">
+    <h1 class="section-title">3. 로비 화면 둘러보기</h1>
+    <p>프로그램을 실행하면 가장 먼저 만나는 화면이 <strong>로비</strong>입니다. 여기서 회의를 만들거나 참여할 수 있습니다.</p>
+
+    <h2>로비 화면 구성</h2>
+    <ul class="icon-list">
+      <li><span class="ico">🏷️</span><div class="body"><strong>회로 기판 스타일 로고</strong>화면 상단에 표시됩니다.</div></li>
+      <li><span class="ico">📝</span><div class="body"><strong>이름 입력란</strong>회의에서 다른 참가자에게 표시될 이름을 입력합니다. (마지막 입력 이름은 자동 저장됨)</div></li>
+      <li><span class="ico">➕</span><div class="body"><strong>새 미팅 만들기 버튼</strong>새로운 회의방을 생성합니다. 회의 제목과 코드를 직접 정할 수 있습니다.</div></li>
+      <li><span class="ico">🔑</span><div class="body"><strong>코드로 참여 버튼</strong>다른 사람이 알려준 회의 코드를 입력해서 입장합니다.</div></li>
+      <li><span class="ico">📌</span><div class="body"><strong>저장된 미팅 목록</strong>이전에 저장해 둔 회의들이 표시됩니다. 현재 참가자 수도 실시간으로 확인 가능합니다.</div></li>
+      <li><span class="ico">📖</span><div class="body"><strong>사용자 메뉴얼 버튼</strong>이 PDF 문서를 다시 볼 수 있습니다.</div></li>
+    </ul>
+
+    <h2>이름 입력</h2>
+    <p>회의에 입장하기 전 화면 상단의 이름 입력란에 본인 이름을 입력합니다. 한 번 입력한 이름은 자동으로 저장되어 다음 실행 시 자동으로 채워집니다.</p>
+
+    <div class="tip">
+      <strong>이름 표시 권장</strong><br>
+      예: "홍길동", "본사 홍길동", "VINA 김철수" 등 부서/지역을 함께 적으면 다른 참가자가 한눈에 알아볼 수 있어 좋습니다.
+    </div>
+
+    <div class="page-footer">
+      사내 미팅 프로그램 사내 미팅 프로그램 · <span class="brand">개발: 서정천</span>
+    </div>
+  </section>
+
+  <!-- ============ 4. JOIN MEETING ============ -->
+  <section class="page">
+    <h1 class="section-title">4. 회의 참여하기</h1>
+
+    <h2>새 회의 만들기</h2>
+    <ol class="steps">
+      <li>로비에서 <span class="btn-label">➕ 새 미팅 만들기</span> 버튼을 클릭합니다.</li>
+      <li>회의 제목을 입력합니다. (예: "본사/VINA 주간회의")</li>
+      <li>회의 코드를 입력합니다. (4~10자, 영문 대문자 + 숫자만 가능)<br>
+        예: <span class="kbd">WEEKLY</span>, <span class="kbd">MORNING1</span>, <span class="kbd">ABCD123</span></li>
+      <li><strong>만들기</strong> 버튼을 클릭하면 즉시 회의방에 입장합니다.</li>
+      <li>다른 참가자에게 <strong>회의 코드</strong>를 알려주면 입장할 수 있습니다.</li>
+    </ol>
+
+    <div class="tip">
+      <strong>코드 정하는 팁</strong><br>
+      모든 사람이 외우기 쉬운 단어로 정하면 좋습니다. 영구적으로 쓸 회의(예: 주간회의)는 <span class="kbd">WEEKLY</span> 처럼 의미있는 코드로 정해두고 저장해 두세요.
+    </div>
+
+    <h2>코드로 참여</h2>
+    <ol class="steps">
+      <li>로비에서 <span class="btn-label">🔑 코드로 참여</span> 버튼을 클릭합니다.</li>
+      <li>주최자에게 받은 회의 코드를 입력합니다.</li>
+      <li><strong>참여</strong> 버튼을 클릭하면 즉시 회의방에 입장합니다.</li>
+    </ol>
+
+    <h2>저장된 미팅으로 빠르게 입장</h2>
+    <p>자주 사용하는 회의방은 저장해 두면 한 번의 클릭으로 입장할 수 있습니다.</p>
+    <ol class="steps">
+      <li>회의에 한 번 입장하면 자동으로 저장됩니다.</li>
+      <li>로비의 <strong>저장된 미팅</strong> 목록에 표시됩니다.</li>
+      <li>제목, 코드, 현재 참가자 수가 함께 표시됩니다.</li>
+      <li>녹색 점(●)이 표시되면 현재 누군가 회의에 참가 중이라는 뜻입니다.</li>
+      <li>카드를 클릭하면 즉시 그 회의방에 입장합니다.</li>
+    </ol>
+
+    <div class="note">
+      <strong>저장된 미팅의 삭제</strong><br>
+      저장된 미팅 카드 우측의 ✕ 버튼을 누르면 목록에서 제거할 수 있습니다. 이 동작은 회의 자체를 삭제하는 게 아니라 본인 PC의 빠른 입장 목록에서만 빼는 것입니다.
+    </div>
+
+    <div class="page-footer">
+      사내 미팅 프로그램 사내 미팅 프로그램 · <span class="brand">개발: 서정천</span>
+    </div>
+  </section>
+
+  <!-- ============ 5. MEETING SCREEN ============ -->
+  <section class="page">
+    <h1 class="section-title">5. 회의 화면 사용법</h1>
+
+    <h2>회의 화면 구성</h2>
+    <ul class="icon-list">
+      <li><span class="ico">⏱</span><div class="body"><strong>경과 시간</strong>좌측 상단에 현재 시각과 회의 경과 시간이 표시됩니다.</div></li>
+      <li><span class="ico">📋</span><div class="body"><strong>회의 코드 영역</strong>우측 상단에서 회의 코드 확인 및 클립보드 복사가 가능합니다.</div></li>
+      <li><span class="ico">👥</span><div class="body"><strong>참가자 수</strong>현재 회의에 접속한 인원 수가 표시됩니다.</div></li>
+      <li><span class="ico">🟦</span><div class="body"><strong>참가자 타일</strong>각 참가자가 사각형 영역으로 표시됩니다. 음성만 사용 시 이름 첫 글자가 원형 아바타로 표시됩니다.</div></li>
+      <li><span class="ico">🎮</span><div class="body"><strong>하단 제어 막대</strong>음소거, 화면 공유, 채팅, 나가기 버튼이 위치합니다.</div></li>
+    </ul>
+
+    <h2>음소거 / 음소거 해제</h2>
+    <p>하단의 <span class="kbd">🎤 음소거</span> 버튼을 클릭하면 본인의 마이크가 음소거됩니다. 다시 클릭하면 해제됩니다.</p>
+    <ul>
+      <li>음소거 시 버튼이 빨간색 <span class="kbd">🔇</span>으로 바뀝니다.</li>
+      <li>다른 참가자에게도 본인의 음소거 상태가 표시됩니다.</li>
+    </ul>
+
+    <h2>화면 공유</h2>
+    <ol class="steps">
+      <li>하단의 <span class="kbd">🖥️ 화면 공유</span> 버튼을 클릭합니다.</li>
+      <li>Windows 화면 선택 창이 뜨면 공유할 화면이나 창을 선택합니다.</li>
+      <li><strong>공유</strong> 버튼을 누르면 다른 참가자들에게 화면이 표시됩니다.</li>
+      <li>공유를 중지하려면 다시 <span class="kbd">공유 중지</span> 버튼을 클릭합니다.</li>
+    </ol>
+
+    <div class="tip">
+      <strong>전체 화면 vs 특정 창 공유</strong><br>
+      특정 창만 선택하면 알림이나 다른 앱이 화면에 보여도 다른 참가자에게는 노출되지 않습니다. 민감한 정보가 있을 때는 특정 창 공유를 권장합니다.
+    </div>
+
+    <h2>채팅</h2>
+    <p>하단의 <span class="kbd">💬 채팅</span> 버튼을 클릭하면 우측에 채팅 패널이 열립니다.</p>
+    <ul>
+      <li>새 메시지가 있는데 채팅이 닫혀 있으면 버튼에 숫자 배지가 표시됩니다.</li>
+      <li>메시지 입력란에 글을 쓰고 <strong>Enter</strong>를 누르거나 <strong>전송</strong> 버튼을 클릭합니다.</li>
+      <li>채팅 내역은 회의가 진행되는 동안만 유지되며 종료 시 사라집니다.</li>
+    </ul>
+
+    <div class="page-footer">
+      사내 미팅 프로그램 사내 미팅 프로그램 · <span class="brand">개발: 서정천</span>
+    </div>
+  </section>
+
+  <section class="page">
+    <h1 class="section-title">5. 회의 화면 사용법 <span style="font-size: 12pt; font-weight: 500; color: #6b7280;">(이어서)</span></h1>
+
+    <h2>회의 코드 공유</h2>
+    <ol class="steps">
+      <li>회의 화면 우측 상단의 <strong>회의 코드 영역</strong>을 클릭합니다.</li>
+      <li>코드가 클립보드에 복사되고 일시적으로 <strong>"복사됨"</strong>으로 표시됩니다.</li>
+      <li>메신저, 이메일 등에 붙여넣어 다른 사람에게 전달합니다.</li>
+    </ol>
+
+    <h2>회의 나가기</h2>
+    <p>하단의 빨간색 <span class="kbd">📞 나가기</span> 버튼을 클릭하면 회의를 종료하고 로비로 돌아갑니다.</p>
+
+    <div class="note">
+      <strong>회의방 자체는 사라지지 않습니다</strong><br>
+      마지막 한 명이 나가도 회의 코드는 그대로 유지됩니다. 같은 코드로 다시 입장하면 같은 회의방으로 들어갑니다.
+    </div>
+
+    <h2>참가자 화면 확대</h2>
+    <p>다른 참가자의 화면(또는 공유된 화면)을 <strong>더블클릭</strong>하면 그 참가자의 화면이 크게 확대됩니다. 다시 더블클릭하면 원래 상태로 돌아갑니다.</p>
+
+    <h1 class="section-title" style="margin-top: 2.5rem;">6. 오디오 장치 설정</h1>
+    <p>여러 마이크나 스피커가 연결된 환경에서 사용할 장치를 선택할 수 있습니다.</p>
+
+    <h2>설정 열기</h2>
+    <ol class="steps">
+      <li>회의 화면 하단의 <strong>🎤 음소거</strong> 버튼 위쪽에 있는 <strong>▲ 화살표</strong>를 클릭합니다.</li>
+      <li>오디오 설정 팝업이 나타납니다.</li>
+      <li><strong>마이크</strong>와 <strong>스피커</strong> 드롭다운에서 사용할 장치를 선택합니다.</li>
+      <li>선택은 자동으로 저장되어 다음번 실행 시에도 유지됩니다.</li>
+    </ol>
+
+    <div class="tip">
+      <strong>장치 핫스왑 지원</strong><br>
+      회의 중에도 마이크나 스피커를 바꿀 수 있습니다. 회의가 끊기지 않고 즉시 적용됩니다.
+    </div>
+
+    <h1 class="section-title" style="margin-top: 2.5rem;">7. 듣기 전용 모드</h1>
+    <p>마이크가 없거나 사용할 수 없는 PC에서도 회의에 참여할 수 있는 모드입니다.</p>
+
+    <h2>듣기 전용 모드로 입장하기</h2>
+    <ol class="steps">
+      <li>일반 방식으로 회의 입장을 시도합니다.</li>
+      <li>마이크 관련 에러가 발생하면 에러 화면에서 <strong>🎧 마이크 없이 입장 (듣기/채팅만)</strong> 버튼을 클릭합니다.</li>
+      <li>회의방에 입장하며, 상단에 청록색 안내 배너가 표시됩니다.</li>
+    </ol>
+
+    <h2>듣기 전용 모드에서 가능한 것</h2>
+    <ul>
+      <li>✅ 다른 참가자의 음성 듣기</li>
+      <li>✅ 다른 참가자의 화면 공유 보기</li>
+      <li>✅ 본인의 화면 공유 (마이크와 무관)</li>
+      <li>✅ 채팅 송수신</li>
+      <li>❌ 본인 음성 발신 (마이크가 없으므로)</li>
+    </ul>
+
+    <div class="page-footer">
+      사내 미팅 프로그램 사내 미팅 프로그램 · <span class="brand">개발: 서정천</span>
+    </div>
+  </section>
+
+  <!-- ============ 8. UPDATE ============ -->
+  <section class="page">
+    <h1 class="section-title">8. 자동 업데이트</h1>
+    <p>새 버전이 출시되면 앱이 자동으로 다운로드하여 적용합니다. 사용자의 별도 조작이 필요 없습니다.</p>
+
+    <h2>업데이트 동작 흐름</h2>
+    <ol class="steps">
+      <li>앱을 실행하면 3초 후 백그라운드에서 새 버전이 있는지 자동 확인합니다.</li>
+      <li>새 버전 발견 시 자동으로 차분 다운로드가 시작됩니다 (대부분 5~10MB).</li>
+      <li>다운로드가 완료되면 <strong>"업데이트 준비 완료"</strong> 다이얼로그가 표시됩니다.</li>
+      <li><strong>"지금 재시작"</strong>을 누르면 즉시 새 버전이 적용됩니다.</li>
+      <li><strong>"나중에"</strong>를 선택하면 앱을 다음번에 종료할 때 자동으로 적용됩니다.</li>
+    </ol>
+
+    <div class="tip">
+      <strong>설정값은 그대로 유지됩니다</strong><br>
+      업데이트가 적용되어도 이름, 저장된 미팅 목록, 오디오 장치 선택 등의 설정은 모두 유지됩니다.
+    </div>
+
+    <h2>현재 버전 확인</h2>
+    <p>화면 좌측 하단에 청록색으로 현재 버전이 표시됩니다.<br>예: <span class="kbd">v1.3.0 · 개발자 서정천</span></p>
+
+    <h1 class="section-title" style="margin-top: 2.5rem;">9. 문제 해결</h1>
+
+    <h3>마이크를 찾을 수 없다고 나옵니다</h3>
+    <p>가장 흔한 원인은 <strong>Windows 마이크 권한이 차단된 경우</strong>입니다.</p>
+    <ol class="steps">
+      <li>에러 화면의 <strong>"Windows 마이크 설정 열기"</strong> 버튼을 클릭합니다.</li>
+      <li>다음 항목이 모두 <strong>켜짐</strong> 상태인지 확인합니다:
+        <ul>
+          <li>마이크 액세스</li>
+          <li>앱에서 마이크에 액세스하도록 허용</li>
+          <li><strong>데스크톱 앱이 마이크에 액세스하도록 허용</strong> ← 자주 꺼져 있음</li>
+        </ul>
+      </li>
+      <li>설정 후 앱으로 돌아와 <strong>"다시 시도"</strong>를 클릭합니다.</li>
+    </ol>
+
+    <h3>마이크가 다른 프로그램에서 사용 중이라고 나옵니다</h3>
+    <p>다른 화상회의 앱(Zoom, Teams, Discord 등)이 마이크를 점유하고 있을 수 있습니다. 다른 앱을 종료한 후 다시 시도해 주세요.</p>
+
+    <h3>상대방 음성이 들리지 않습니다</h3>
+    <ul>
+      <li>오디오 설정에서 올바른 스피커가 선택되어 있는지 확인합니다.</li>
+      <li>Windows 시스템 볼륨이 음소거되어 있지 않은지 확인합니다.</li>
+      <li>상대방의 음소거 상태(빨간 🔇 아이콘)를 확인합니다.</li>
+    </ul>
+
+    <h3>화면 공유가 시작되지 않습니다</h3>
+    <p>Windows 화면 캡처 권한이 필요합니다. 화면 공유 클릭 시 Windows가 권한을 묻는 창을 띄우면 <strong>허용</strong>해 주세요.</p>
+
+    <div class="page-footer">
+      사내 미팅 프로그램 사내 미팅 프로그램 · <span class="brand">개발: 서정천</span>
+    </div>
+  </section>
+
+  <!-- ============ 10. FAQ ============ -->
+  <section class="page">
+    <h1 class="section-title">10. 자주 묻는 질문 (FAQ)</h1>
+
+    <p class="faq-q">회의는 동시에 몇 명까지 참여할 수 있나요?</p>
+    <p class="faq-a">기술적으로는 약 6~8명까지 무리 없이 동작합니다. P2P 방식이라 참가자가 늘어날수록 각자의 네트워크 대역폭이 더 필요해집니다. 일반적인 사내 회의 규모에서는 충분합니다.</p>
+
+    <p class="faq-q">회의 내용이 녹음되거나 저장되나요?</p>
+    <p class="faq-a">아닙니다. 본 프로그램은 녹음/녹화 기능을 제공하지 않습니다. 모든 통신은 P2P 방식으로 참가자 PC 사이에서만 오갑니다.</p>
+
+    <p class="faq-q">회사 외부에서도 사용할 수 있나요?</p>
+    <p class="faq-a">네, 인터넷이 연결된 곳이면 어디서나 사용 가능합니다. 회의 코드만 알고 있으면 됩니다.</p>
+
+    <p class="faq-q">회사 외 사람을 초대해도 되나요?</p>
+    <p class="faq-a">기술적으로 가능하나, 회사 정책에 따라 다릅니다. 사내용 프로그램이므로 회사 정책을 확인해 주세요.</p>
+
+    <p class="faq-q">회의 코드가 노출되면 누구나 입장할 수 있나요?</p>
+    <p class="faq-a">네, 코드를 아는 사람은 누구나 입장 가능합니다. 민감한 회의는 외부에 노출되지 않도록 주의해 주세요. 회의별로 코드를 다르게 정하는 것도 좋은 방법입니다.</p>
+
+    <p class="faq-q">화상(비디오) 기능은 없나요?</p>
+    <p class="faq-a">현재는 음성과 화면 공유만 지원합니다. 향후 업데이트로 카메라 기능이 추가될 수 있습니다.</p>
+
+    <p class="faq-q">앱이 갑자기 종료되거나 회의가 끊깁니다</p>
+    <p class="faq-a">인터넷 연결을 먼저 확인해 주세요. 그래도 같은 문제가 반복되면 앱을 완전히 종료한 후 다시 실행해 보세요. 그래도 해결되지 않으면 개발자에게 문의해 주세요.</p>
+
+    <p class="faq-q">설치한 PC를 바꾸려면 어떻게 하나요?</p>
+    <p class="faq-a">기존 PC에서 제어판을 통해 프로그램을 제거한 후, 새 PC에 인스톨러를 실행하면 됩니다. 단, 저장된 미팅 목록과 이름은 이전되지 않으므로 새로 설정해야 합니다.</p>
+
+    <p class="faq-q">자동 업데이트가 안 되는 것 같아요</p>
+    <p class="faq-a">앱 실행 후 3초 뒤에 체크가 시작됩니다. 인터넷이 연결되어 있는지 확인하시고, 그래도 안 되면 좌측 하단의 현재 버전을 확인해 주세요. 만약 최신 버전이 v1.3.0인데 그보다 낮다면 한 번 더 재시작해 보세요.</p>
+
+    <div class="warn" style="margin-top: 2rem;">
+      <strong>문제 해결이 되지 않을 때</strong><br>
+      위 가이드로 해결되지 않는 문제가 있다면 개발 담당자(<strong>서정천</strong>)에게 다음 정보와 함께 문의해 주세요.
+      <ul style="margin-top: 0.5rem;">
+        <li>발생한 문제 상황 (가능하면 화면 캡처)</li>
+        <li>본인 PC의 운영체제 (예: Windows 11)</li>
+        <li>현재 사용 중인 앱 버전 (좌측 하단 표시)</li>
+        <li>어떤 동작 후 문제가 발생했는지</li>
+      </ul>
+    </div>
+
+    <div class="page-footer">
+      사내 미팅 프로그램 사내 미팅 프로그램 · <span class="brand">개발: 서정천</span>
+    </div>
+  </section>
+
+</body>
+</html>
