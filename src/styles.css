@@ -1592,6 +1592,12 @@ input {
   color: #fff;
 }
 
+.banner-info {
+  background: #1f3a4d;
+  color: #7fd0ff;
+  border-bottom: 1px solid #2a4a5e;
+}
+
 /* ---------- Source Picker ---------- */
 .picker-overlay {
   position: fixed;
@@ -1754,6 +1760,12 @@ input {
   border-radius: 3px;
 }
 
+.listen-only-badge {
+  background: #1abc9c;
+  color: #0f1a18;
+  font-weight: 600;
+}
+
 .control-bar {
   display: flex;
   align-items: flex-start;
@@ -1804,6 +1816,24 @@ input {
 
 .btn-circle.btn-danger {
   background: #ef6868;
+}
+
+.btn-circle.btn-disabled,
+.btn-circle:disabled {
+  background: #2a2e36;
+  color: #6b6f78;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.btn-listen-only {
+  background: #1f3a4d;
+  color: #7fd0ff;
+  border: 1px solid #2a4a5e;
+}
+
+.btn-listen-only:hover {
+  background: #264a60;
 }
 
 .btn-circle.btn-leave {

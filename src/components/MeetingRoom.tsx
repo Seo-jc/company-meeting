@@ -5,6 +5,7 @@ import {
   getMicrophone,
   getScreenShareBrowser,
   getScreenShareElectron,
+  getSilentMicrophone,
 } from '../lib/media';
 import { getStoredMicId, getStoredSpeakerId } from './AudioDevices';
 import SourcePicker from './SourcePicker';
@@ -80,6 +81,7 @@ export default function MeetingRoom({
   const [errorMsg, setErrorMsg] = useState('');
   const [errorKind, setErrorKind] = useState<ErrorKind>('unknown');
   const [retryNonce, setRetryNonce] = useState(0);
+  const [listenOnly, setListenOnly] = useState(false);
   const [copied, setCopied] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -105,7 +107,9 @@ export default function MeetingRoom({
 
     (async () => {
       try {
-        const localStream = await getMicrophone(getStoredMicId());
+        const localStream = listenOnly
+          ? getSilentMicrophone()
+          : await getMicrophone(getStoredMicId());
         if (cancelled) {
           localStream.getTracks().forEach((t) => t.stop());
           return;
@@ -171,9 +175,17 @@ export default function MeetingRoom({
       signalingRef.current?.close();
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
     };
-  }, [roomCode, displayName, retryNonce]);
+  }, [roomCode, displayName, retryNonce, listenOnly]);
 
   const handleRetry = () => {
+    setListenOnly(false);
+    setStatus('connecting');
+    setErrorMsg('');
+    setRetryNonce((n) => n + 1);
+  };
+
+  const handleJoinListenOnly = () => {
+    setListenOnly(true);
     setStatus('connecting');
     setErrorMsg('');
     setRetryNonce((n) => n + 1);
@@ -356,6 +368,8 @@ export default function MeetingRoom({
   if (status === 'error') {
     const showSettings =
       isElectron && (errorKind === 'permission' || errorKind === 'no-device');
+    const allowListenOnly =
+      errorKind === 'permission' || errorKind === 'no-device' || errorKind === 'in-use';
     const errorTitle =
       errorKind === 'permission'
         ? '마이크 권한이 필요합니다'
@@ -374,6 +388,8 @@ export default function MeetingRoom({
           {showSettings && (
             <p className="error-hint">
               설정에서 권한을 변경한 후 "다시 시도"를 눌러주세요.
+              <br />
+              지금 듣기/채팅만 사용하실 수도 있습니다.
             </p>
           )}
           <div className="error-actions">
@@ -385,6 +401,11 @@ export default function MeetingRoom({
             <button className="btn btn-primary" onClick={handleRetry}>
               다시 시도
             </button>
+            {allowListenOnly && (
+              <button className="btn btn-listen-only" onClick={handleJoinListenOnly}>
+                🎧 마이크 없이 입장 (듣기/채팅만)
+              </button>
+            )}
             <button className="btn" onClick={onLeave}>
               로비로 돌아가기
             </button>
@@ -412,6 +433,7 @@ export default function MeetingRoom({
       <SelfTile
         name={displayName}
         muted={muted}
+        listenOnly={listenOnly}
         focused={expandedId === SELF_ID}
         onDoubleClick={() => toggleExpand(SELF_ID)}
       />
@@ -494,6 +516,11 @@ export default function MeetingRoom({
         </div>
       </header>
 
+      {listenOnly && (
+        <div className="banner banner-info">
+          🎧 듣기 전용 모드 · 마이크 없이 입장하여 음성 발신은 불가하지만 다른 사람의 음성과 채팅은 정상적으로 이용 가능합니다.
+        </div>
+      )}
       {shareError && <div className="banner banner-error">{shareError}</div>}
 
       <main className={`meeting-area ${expandedId ? 'has-focus' : ''}`}>
@@ -529,13 +556,22 @@ export default function MeetingRoom({
             </svg>
           </button>
           <button
-            className={`btn-circle ${muted ? 'btn-danger' : ''}`}
-            onClick={toggleMute}
-            title={muted ? '음소거 해제' : '음소거'}
+            className={`btn-circle ${listenOnly ? 'btn-disabled' : muted ? 'btn-danger' : ''}`}
+            onClick={listenOnly ? undefined : toggleMute}
+            disabled={listenOnly}
+            title={
+              listenOnly
+                ? '마이크가 없어 음성 발신이 불가합니다'
+                : muted
+                ? '음소거 해제'
+                : '음소거'
+            }
           >
-            {muted ? '🔇' : '🎤'}
+            {listenOnly ? '🎧' : muted ? '🔇' : '🎤'}
           </button>
-          <span className="control-label">{muted ? '음소거 해제' : '음소거'}</span>
+          <span className="control-label">
+            {listenOnly ? '마이크 없음' : muted ? '음소거 해제' : '음소거'}
+          </span>
           {showAudioPopover && (
             <AudioSettingsPopover
               onClose={() => setShowAudioPopover(false)}
@@ -627,11 +663,13 @@ function MeetingTime({ startTs }: { startTs: number }) {
 function SelfTile({
   name,
   muted,
+  listenOnly,
   focused,
   onDoubleClick,
 }: {
   name: string;
   muted: boolean;
+  listenOnly: boolean;
   focused?: boolean;
   onDoubleClick?: () => void;
 }) {
@@ -643,7 +681,12 @@ function SelfTile({
     >
       <div className="tile-avatar">{name.slice(0, 1).toUpperCase()}</div>
       <div className="tile-name">
-        {name} (나) {muted && <span className="muted-badge">음소거</span>}
+        {name} (나){' '}
+        {listenOnly ? (
+          <span className="muted-badge listen-only-badge">듣기 전용</span>
+        ) : (
+          muted && <span className="muted-badge">음소거</span>
+        )}
       </div>
     </div>
   );
