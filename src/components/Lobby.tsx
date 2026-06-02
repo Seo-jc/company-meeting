@@ -16,12 +16,21 @@ const MIN_CODE_LENGTH = 4;
 const MAX_CODE_LENGTH = 10;
 const DEFAULT_CODE_LENGTH = 6;
 const SAVED_KEY = 'savedMeetings:v1';
+const RECENT_KEY = 'recentMeetings:v1';
 const LAST_NAME_KEY = 'lastDisplayName';
+const MAX_RECENT = 10;
 
 type SavedMeeting = {
   id: string;
   name: string;
   code: string;
+};
+
+type RecentMeeting = {
+  id: string;
+  name: string;
+  code: string;
+  joinedAt: number;
 };
 
 function generateRoomCode(): string {
@@ -55,6 +64,49 @@ function persistSaved(list: SavedMeeting[]) {
   }
 }
 
+function loadRecent(): RecentMeeting[] {
+  try {
+    const raw = localStorage.getItem(RECENT_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistRecent(list: RecentMeeting[]) {
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify(list));
+  } catch {
+    // ignore quota errors
+  }
+}
+
+function withRecent(
+  current: RecentMeeting[],
+  item: { name: string; code: string }
+): RecentMeeting[] {
+  const idx = current.findIndex((r) => r.code === item.code);
+  const now = Date.now();
+  let next: RecentMeeting[];
+  if (idx >= 0) {
+    next = current.slice();
+    next[idx] = {
+      ...next[idx],
+      name: item.name || next[idx].name,
+      joinedAt: now,
+    };
+  } else {
+    next = [
+      { id: crypto.randomUUID(), name: item.name, code: item.code, joinedAt: now },
+      ...current,
+    ];
+  }
+  next.sort((a, b) => b.joinedAt - a.joinedAt);
+  return next.slice(0, MAX_RECENT);
+}
+
 type Props = {
   onJoin: (
     roomCode: string,
@@ -68,6 +120,7 @@ export default function Lobby({ onJoin }: Props) {
   const [customCode, setCustomCode] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [savedMeetings, setSavedMeetings] = useState<SavedMeeting[]>([]);
+  const [recentMeetings, setRecentMeetings] = useState<RecentMeeting[]>([]);
   const [roomCounts, setRoomCounts] = useState<Record<string, number>>({});
   const [showAddForm, setShowAddForm] = useState(false);
   const [newMeetingName, setNewMeetingName] = useState('');
@@ -78,9 +131,20 @@ export default function Lobby({ onJoin }: Props) {
 
   useEffect(() => {
     setSavedMeetings(loadSaved());
+    setRecentMeetings(loadRecent());
     const lastName = localStorage.getItem(LAST_NAME_KEY);
     if (lastName) setDisplayName(lastName);
   }, []);
+
+  const recordRecent = (name: string, code: string) => {
+    const next = withRecent(recentMeetings, { name, code });
+    setRecentMeetings(next);
+    persistRecent(next);
+  };
+
+  // Hide recent entries that are already in the saved list (avoid duplicate display).
+  const savedCodes = new Set(savedMeetings.map((m) => m.code));
+  const visibleRecent = recentMeetings.filter((r) => !savedCodes.has(r.code));
 
   // Poll participant counts for saved meetings.
   useEffect(() => {
@@ -150,6 +214,7 @@ export default function Lobby({ onJoin }: Props) {
     }
     const code = trimmedCustomCode || generateRoomCode();
     persistName(trimmedName);
+    recordRecent('', code);
     onJoin(code, trimmedName);
   };
 
@@ -160,6 +225,7 @@ export default function Lobby({ onJoin }: Props) {
       return;
     }
     persistName(trimmedName);
+    recordRecent('', trimmedJoinCode);
     onJoin(trimmedJoinCode, trimmedName);
   };
 
@@ -167,6 +233,35 @@ export default function Lobby({ onJoin }: Props) {
     if (!requireName()) return;
     persistName(trimmedName);
     onJoin(m.code, trimmedName, m.name);
+  };
+
+  const handleJoinRecent = (r: RecentMeeting) => {
+    if (!requireName()) return;
+    persistName(trimmedName);
+    recordRecent(r.name, r.code);
+    onJoin(r.code, trimmedName, r.name || undefined);
+  };
+
+  const handleDeleteRecent = (id: string) => {
+    const next = recentMeetings.filter((r) => r.id !== id);
+    setRecentMeetings(next);
+    persistRecent(next);
+  };
+
+  const handlePromoteToSaved = (r: RecentMeeting) => {
+    // If already in saved (by code), just remove from recent.
+    if (savedMeetings.some((s) => s.code === r.code)) {
+      handleDeleteRecent(r.id);
+      return;
+    }
+    const name = r.name || r.code;
+    const newSaved = [
+      ...savedMeetings,
+      { id: crypto.randomUUID(), name, code: r.code },
+    ];
+    persistSaved(newSaved);
+    setSavedMeetings(newSaved);
+    handleDeleteRecent(r.id);
   };
 
   const handleAddSaved = () => {
@@ -286,6 +381,58 @@ export default function Lobby({ onJoin }: Props) {
       </div>
 
       <div className="lobby-right">
+      <aside className="lobby-recent-panel">
+        <div className="saved-panel-header">
+          <h3>최근 회의</h3>
+        </div>
+        <div className="saved-panel-body">
+          {visibleRecent.length === 0 ? (
+            <div className="saved-empty">
+              <div className="saved-empty-icon">🕒</div>
+              <div className="saved-empty-text">
+                참여했던 회의가
+                <br />이곳에 표시됩니다
+              </div>
+            </div>
+          ) : (
+            <ul className="saved-list">
+              {visibleRecent.map((r) => (
+                <li key={r.id} className="saved-item">
+                  <button
+                    className="saved-join"
+                    onClick={() => handleJoinRecent(r)}
+                    disabled={!trimmedName}
+                    title={trimmedName ? '클릭해서 다시 참가' : '이름을 먼저 입력하세요'}
+                  >
+                    <div className="saved-info">
+                      <div className="saved-name">
+                        {r.name || <span className="recent-no-name">이름 없음</span>}
+                      </div>
+                      <div className="saved-code">{r.code}</div>
+                    </div>
+                  </button>
+                  <button
+                    className="recent-promote"
+                    onClick={() => handlePromoteToSaved(r)}
+                    title="저장된 회의로 추가"
+                    aria-label="저장"
+                  >
+                    📌
+                  </button>
+                  <button
+                    className="saved-delete"
+                    onClick={() => handleDeleteRecent(r.id)}
+                    title="삭제"
+                    aria-label="삭제"
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </aside>
       <aside className="lobby-saved-panel">
         <div className="saved-panel-header">
           <h3>저장된 회의</h3>

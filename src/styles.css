@@ -541,7 +541,18 @@ input {
 
 .lobby-saved-panel {
   flex: 1 1 auto;
-  min-height: 240px;
+  min-height: 200px;
+  background: #1d2026;
+  border: 1px solid #2a2e36;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.lobby-recent-panel {
+  flex: 0 1 auto;
+  max-height: 220px;
   background: #1d2026;
   border: 1px solid #2a2e36;
   border-radius: 12px;
@@ -1156,6 +1167,29 @@ input {
 .saved-delete:hover {
   border-color: #ef6868;
   color: #ef6868;
+}
+
+.recent-promote {
+  width: 32px;
+  background: #14161b;
+  border: 1px solid #2a2e36;
+  color: #6b7280;
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.15s;
+}
+
+.recent-promote:hover {
+  border-color: #1abc9c;
+  color: #1abc9c;
+  background: rgba(26, 188, 156, 0.06);
+}
+
+.recent-no-name {
+  color: #6b7280;
+  font-style: italic;
+  font-weight: 400;
 }
 
 .saved-add-form {
