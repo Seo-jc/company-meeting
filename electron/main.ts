@@ -6,6 +6,18 @@ const isDev = !app.isPackaged;
 
 let mainWindow: BrowserWindow | null = null;
 
+type UpdateStatus =
+  | { kind: 'available'; version: string }
+  | { kind: 'progress'; percent: number; version: string; transferred: number; total: number }
+  | { kind: 'downloaded'; version: string }
+  | { kind: 'error'; message: string };
+
+function sendUpdateStatus(status: UpdateStatus): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('update-status', status);
+  }
+}
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -33,6 +45,8 @@ function createWindow(): void {
   }
 }
 
+let pendingDownloadedVersion: string | null = null;
+
 function setupAutoUpdater(): void {
   if (isDev) {
     console.log('[updater] dev mode, skipping auto-update');
@@ -48,6 +62,7 @@ function setupAutoUpdater(): void {
 
   autoUpdater.on('update-available', (info) => {
     console.log('[updater] update available:', info.version);
+    sendUpdateStatus({ kind: 'available', version: info.version });
   });
 
   autoUpdater.on('update-not-available', () => {
@@ -55,30 +70,26 @@ function setupAutoUpdater(): void {
   });
 
   autoUpdater.on('error', (err) => {
-    console.error('[updater] error:', err?.message ?? err);
+    const message = err?.message ?? String(err);
+    console.error('[updater] error:', message);
+    sendUpdateStatus({ kind: 'error', message });
   });
 
   autoUpdater.on('download-progress', (p) => {
     console.log(`[updater] download progress: ${Math.round(p.percent)}%`);
+    sendUpdateStatus({
+      kind: 'progress',
+      percent: p.percent,
+      version: '',
+      transferred: p.transferred,
+      total: p.total,
+    });
   });
 
-  autoUpdater.on('update-downloaded', async (info) => {
+  autoUpdater.on('update-downloaded', (info) => {
     console.log('[updater] downloaded:', info.version);
-    if (!mainWindow) return;
-    const result = await dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: '업데이트 준비 완료',
-      message: `새 버전 v${info.version} 이(가) 준비되었습니다.`,
-      detail:
-        '"지금 재시작"을 누르시면 즉시 새 버전이 적용됩니다.\n"나중에"를 누르시면 앱을 다음번에 종료할 때 자동으로 적용됩니다.',
-      buttons: ['지금 재시작', '나중에'],
-      defaultId: 0,
-      cancelId: 1,
-      noLink: true,
-    });
-    if (result.response === 0) {
-      autoUpdater.quitAndInstall();
-    }
+    pendingDownloadedVersion = info.version;
+    sendUpdateStatus({ kind: 'downloaded', version: info.version });
   });
 
   // Check 3 seconds after launch so the window is fully loaded first
@@ -144,3 +155,12 @@ ipcMain.handle('open-mic-settings', async () => {
   }
 });
 
+ipcMain.handle('apply-update', async () => {
+  if (!pendingDownloadedVersion) {
+    console.warn('[updater] apply-update called but no pending download');
+    return;
+  }
+  console.log('[updater] quitAndInstall for v' + pendingDownloadedVersion);
+  // Defer slightly so the IPC reply is returned to the renderer before quit.
+  setTimeout(() => autoUpdater.quitAndInstall(), 200);
+});

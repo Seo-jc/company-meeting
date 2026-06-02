@@ -27,6 +27,22 @@ declare global {
         Array<{ id: string; name: string; thumbnail: string }>
       >;
       openMicSettings: () => Promise<void>;
+      applyUpdate: () => Promise<void>;
+      onUpdateStatus: (
+        callback: (
+          status:
+            | { kind: 'available'; version: string }
+            | {
+                kind: 'progress';
+                percent: number;
+                version: string;
+                transferred: number;
+                total: number;
+              }
+            | { kind: 'downloaded'; version: string }
+            | { kind: 'error'; message: string }
+        ) => void
+      ) => () => void;
       platform: string;
     };
   }

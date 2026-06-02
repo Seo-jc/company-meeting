@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Lobby from './components/Lobby';
 import MeetingRoom from './components/MeetingRoom';
+import UpdateNotification from './components/UpdateNotification';
 
 type Screen =
   | { name: 'lobby' }
@@ -16,6 +17,7 @@ export default function App() {
 
   return (
     <div className="app-root">
+      <UpdateNotification />
       <div className="version-bar">
         v{__APP_VERSION__} <span className="version-sep">·</span> 개발자 서정천
       </div>
