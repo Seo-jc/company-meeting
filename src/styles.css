@@ -784,6 +784,30 @@ input {
 
 .error-text {
   color: #ef6868;
+  white-space: pre-wrap;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.error-card {
+  max-width: 480px;
+}
+
+.error-hint {
+  color: #9aa0a8;
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+.error-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.error-actions .btn {
+  width: 100%;
 }
 
 /* ---------- Meeting ---------- */

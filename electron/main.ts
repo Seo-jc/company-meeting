@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, desktopCapturer, session, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, desktopCapturer, session, dialog, shell } from 'electron';
 import { join } from 'path';
 import { autoUpdater } from 'electron-updater';
 
@@ -130,4 +130,16 @@ ipcMain.handle('get-screen-sources', async () => {
     name: s.name,
     thumbnail: s.thumbnail.toDataURL(),
   }));
+});
+
+ipcMain.handle('open-mic-settings', async () => {
+  if (process.platform === 'win32') {
+    await shell.openExternal('ms-settings:privacy-microphone');
+  } else if (process.platform === 'darwin') {
+    await shell.openExternal(
+      'x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'
+    );
+  } else {
+    await shell.openExternal('https://support.google.com/chrome/answer/2693767');
+  }
 });

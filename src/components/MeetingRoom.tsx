@@ -21,11 +21,48 @@ type Props = {
 };
 
 type Status = 'connecting' | 'connected' | 'error';
+type ErrorKind = 'permission' | 'no-device' | 'in-use' | 'network' | 'unknown';
 
 const SELF_ID = '__self__';
 const SCREEN_SELF_ID = '__screen_self__';
 
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
+
+function classifyError(e: unknown): { kind: ErrorKind; msg: string } {
+  if (e instanceof DOMException) {
+    switch (e.name) {
+      case 'NotFoundError':
+        return {
+          kind: 'no-device',
+          msg: '마이크를 찾을 수 없습니다. PC에 마이크가 연결되어 있는지, Windows 설정에서 앱의 마이크 접근이 허용되어 있는지 확인해 주세요.',
+        };
+      case 'OverconstrainedError':
+        return {
+          kind: 'no-device',
+          msg: '이전에 선택한 마이크 장치를 찾을 수 없습니다. 마이크 설정을 다시 선택해 주세요.',
+        };
+      case 'NotAllowedError':
+      case 'SecurityError':
+        return {
+          kind: 'permission',
+          msg: '마이크 접근이 거부되었습니다. Windows 설정에서 "데스크톱 앱이 마이크에 액세스하도록 허용"을 켠 후 다시 시도해 주세요.',
+        };
+      case 'NotReadableError':
+      case 'TrackStartError':
+        return {
+          kind: 'in-use',
+          msg: '마이크가 다른 프로그램에서 사용 중입니다. 다른 화상회의/녹음 프로그램을 종료한 후 다시 시도해 주세요.',
+        };
+    }
+  }
+  if (e instanceof Error) {
+    if (e.message.includes('시그널링') || e.message.includes('signaling')) {
+      return { kind: 'network', msg: e.message };
+    }
+    return { kind: 'unknown', msg: e.message };
+  }
+  return { kind: 'unknown', msg: '연결에 실패했습니다' };
+}
 
 export default function MeetingRoom({
   roomCode,
@@ -41,6 +78,8 @@ export default function MeetingRoom({
   const [showPicker, setShowPicker] = useState(false);
   const [status, setStatus] = useState<Status>('connecting');
   const [errorMsg, setErrorMsg] = useState('');
+  const [errorKind, setErrorKind] = useState<ErrorKind>('unknown');
+  const [retryNonce, setRetryNonce] = useState(0);
   const [copied, setCopied] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -114,7 +153,14 @@ export default function MeetingRoom({
         meshRef.current = mesh;
         setStatus('connected');
       } catch (e) {
-        setErrorMsg(e instanceof Error ? e.message : '연결에 실패했습니다');
+        console.error('[meeting] connection failed', e);
+        const { kind, msg } = classifyError(e);
+        if (kind === 'no-device' && e instanceof DOMException && e.name === 'OverconstrainedError') {
+          // Stale saved deviceId - clear it so retry uses default
+          localStorage.removeItem('selectedMicId');
+        }
+        setErrorKind(kind);
+        setErrorMsg(msg);
         setStatus('error');
       }
     })();
@@ -125,7 +171,21 @@ export default function MeetingRoom({
       signalingRef.current?.close();
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
     };
-  }, [roomCode, displayName]);
+  }, [roomCode, displayName, retryNonce]);
+
+  const handleRetry = () => {
+    setStatus('connecting');
+    setErrorMsg('');
+    setRetryNonce((n) => n + 1);
+  };
+
+  const handleOpenMicSettings = async () => {
+    try {
+      await window.electronAPI?.openMicSettings();
+    } catch (err) {
+      console.error('[mic-settings] open failed', err);
+    }
+  };
 
   useEffect(() => {
     if (!screenStream) return;
@@ -294,12 +354,41 @@ export default function MeetingRoom({
   };
 
   if (status === 'error') {
+    const showSettings =
+      isElectron && (errorKind === 'permission' || errorKind === 'no-device');
+    const errorTitle =
+      errorKind === 'permission'
+        ? '마이크 권한이 필요합니다'
+        : errorKind === 'no-device'
+        ? '마이크를 찾을 수 없습니다'
+        : errorKind === 'in-use'
+        ? '마이크가 사용 중입니다'
+        : errorKind === 'network'
+        ? '서버 연결 실패'
+        : '연결 실패';
     return (
       <div className="centered">
-        <div className="card">
-          <h2>연결 실패</h2>
+        <div className="card error-card">
+          <h2>{errorTitle}</h2>
           <p className="error-text">{errorMsg}</p>
-          <button className="btn" onClick={onLeave}>로비로 돌아가기</button>
+          {showSettings && (
+            <p className="error-hint">
+              설정에서 권한을 변경한 후 "다시 시도"를 눌러주세요.
+            </p>
+          )}
+          <div className="error-actions">
+            {showSettings && (
+              <button className="btn btn-primary" onClick={handleOpenMicSettings}>
+                Windows 마이크 설정 열기
+              </button>
+            )}
+            <button className="btn btn-primary" onClick={handleRetry}>
+              다시 시도
+            </button>
+            <button className="btn" onClick={onLeave}>
+              로비로 돌아가기
+            </button>
+          </div>
         </div>
       </div>
     );

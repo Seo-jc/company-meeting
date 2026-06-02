@@ -26,6 +26,7 @@ declare global {
       getScreenSources: () => Promise<
         Array<{ id: string; name: string; thumbnail: string }>
       >;
+      openMicSettings: () => Promise<void>;
       platform: string;
     };
   }

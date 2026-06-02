@@ -9,5 +9,7 @@ export type ScreenSource = {
 contextBridge.exposeInMainWorld('electronAPI', {
   getScreenSources: (): Promise<ScreenSource[]> =>
     ipcRenderer.invoke('get-screen-sources'),
+  openMicSettings: (): Promise<void> =>
+    ipcRenderer.invoke('open-mic-settings'),
   platform: process.platform,
 });
