@@ -13,6 +13,17 @@ export type ReleaseNote = {
  */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '1.4.2',
+    date: '2026-06-02',
+    highlight: '변경 사항 안내 창이 정상적으로 표시되도록 수정',
+    fixed: [
+      'v1.4.1에서 도입된 변경 사항 팝업이 기존 사용자에게 표시되지 않던 문제 해결',
+    ],
+    added: [
+      '좌측 하단의 버전 표시(v1.4.2 · 개발자 서정천)를 클릭하면 언제든 변경 이력을 볼 수 있습니다',
+    ],
+  },
+  {
     version: '1.4.1',
     date: '2026-06-02',
     highlight: '업데이트 후 변경 사항을 한눈에 확인하세요',

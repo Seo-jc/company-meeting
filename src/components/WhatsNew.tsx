@@ -24,11 +24,30 @@ export default function WhatsNew({ forceShow, onClose }: Props) {
     }
 
     const seen = localStorage.getItem(SEEN_KEY);
-    // First-ever launch: silently record version, no popup.
+
     if (!seen) {
+      // No prior version recorded. Could be:
+      //  (a) brand-new install → don't show anything
+      //  (b) returning user from before this feature existed → show current version's notes
+      // We distinguish by looking for any sign of prior usage in localStorage.
+      const hasPriorUsage =
+        localStorage.getItem('lastDisplayName') !== null ||
+        localStorage.getItem('savedMeetings:v1') !== null ||
+        localStorage.getItem('selectedMicId') !== null ||
+        localStorage.getItem('selectedSpeakerId') !== null;
+
+      if (hasPriorUsage) {
+        // Returning user: show notes for the current version so they see what's new.
+        setNotes(RELEASE_NOTES.slice(0, 1));
+        setOpen(true);
+        return;
+      }
+
+      // True first install: silently record and skip.
       localStorage.setItem(SEEN_KEY, currentVersion);
       return;
     }
+
     // Version unchanged: nothing to show.
     if (seen === currentVersion) return;
     // Version moved forward: show notes between previous and current.
