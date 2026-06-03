@@ -4,260 +4,318 @@
   <meta charset="UTF-8" />
   <title>사내 미팅 프로그램 사용자 메뉴얼</title>
   <style>
-    @page {
-      size: A4;
-      margin: 0;
-    }
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
+    @page { size: A4; margin: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     html, body {
       font-family: 'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
-      color: #1f2329;
-      line-height: 1.65;
-      font-size: 11pt;
-      background: #fff;
+      color: #1f2329; line-height: 1.65; font-size: 11pt; background: #fff;
     }
     .page {
-      width: 210mm;
-      min-height: 297mm;
-      padding: 22mm 20mm;
-      page-break-after: always;
-      position: relative;
+      width: 210mm; min-height: 297mm; padding: 22mm 20mm;
+      page-break-after: always; position: relative;
     }
     .page:last-child { page-break-after: auto; }
 
     /* Cover */
     .cover {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      text-align: center;
+      display: flex; flex-direction: column; justify-content: center;
+      align-items: center; text-align: center;
       background: linear-gradient(135deg, #0d1117 0%, #1f2937 100%);
-      color: #fff;
-      gap: 1.5rem;
+      color: #fff; gap: 1.5rem;
     }
     .cover-logo {
-      width: 140px;
-      height: 140px;
-      box-shadow: 0 8px 32px rgba(148, 163, 184, 0.25);
-      border-radius: 28px;
-      overflow: hidden;
-      display: grid;
-      place-items: center;
+      width: 140px; height: 140px; box-shadow: 0 8px 32px rgba(148, 163, 184, 0.25);
+      border-radius: 28px; overflow: hidden; display: grid; place-items: center;
     }
     .cover-logo svg { width: 100%; height: 100%; display: block; }
-    .cover h1 {
-      font-size: 36pt;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-      margin-top: 1rem;
-    }
+    .cover h1 { font-size: 36pt; font-weight: 800; letter-spacing: -0.02em; margin-top: 1rem; }
     .cover .subtitle {
-      font-size: 18pt;
-      color: #1abc9c;
-      font-weight: 600;
+      background: linear-gradient(135deg, #e5e7eb, #94a3b8, #475569);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      font-size: 18pt; font-weight: 600;
     }
-    .cover .meta {
-      margin-top: 3rem;
-      color: #9aa0a8;
-      font-size: 11pt;
-    }
+    .cover .meta { margin-top: 3rem; color: #9aa0a8; font-size: 11pt; }
     .cover .meta strong { color: #fff; font-weight: 600; }
 
     /* Headings */
     h1.section-title {
-      font-size: 22pt;
-      font-weight: 800;
-      color: #0d1117;
-      padding-bottom: 0.6rem;
-      border-bottom: 3px solid #1abc9c;
+      font-size: 22pt; font-weight: 800; color: #0d1117;
+      padding-bottom: 0.6rem; border-bottom: 3px solid #475569;
       margin-bottom: 1.5rem;
     }
     h2 {
-      font-size: 14pt;
-      font-weight: 700;
-      color: #0d1117;
-      margin-top: 1.6rem;
-      margin-bottom: 0.6rem;
+      font-size: 14pt; font-weight: 700; color: #0d1117;
+      margin-top: 1.6rem; margin-bottom: 0.6rem;
     }
     h3 {
-      font-size: 11.5pt;
-      font-weight: 700;
-      color: #1f2937;
-      margin-top: 1rem;
-      margin-bottom: 0.4rem;
+      font-size: 11.5pt; font-weight: 700; color: #1f2937;
+      margin-top: 1rem; margin-bottom: 0.4rem;
     }
-
-    /* Body text */
     p { margin: 0.4rem 0; }
     strong { color: #0d1117; font-weight: 700; }
     ul, ol { padding-left: 1.4rem; margin: 0.4rem 0; }
     li { margin: 0.25rem 0; }
 
     /* TOC */
-    .toc {
-      list-style: none;
-      padding-left: 0;
-    }
+    .toc { list-style: none; padding-left: 0; }
     .toc li {
-      display: flex;
-      justify-content: space-between;
-      padding: 0.55rem 0;
+      display: flex; justify-content: space-between; padding: 0.55rem 0;
       border-bottom: 1px dotted #d0d4dc;
     }
-    .toc li .num {
-      color: #1abc9c;
-      font-weight: 700;
-      width: 2.2rem;
-    }
+    .toc li .num { color: #475569; font-weight: 700; width: 2.2rem; }
     .toc li .name { flex: 1; }
     .toc li .page-num { color: #6b7280; }
 
     /* Callouts */
     .note, .warn, .tip {
-      padding: 0.85rem 1rem;
-      border-radius: 6px;
-      margin: 0.8rem 0;
-      font-size: 10.5pt;
-      line-height: 1.55;
+      padding: 0.85rem 1rem; border-radius: 6px; margin: 0.8rem 0;
+      font-size: 10.5pt; line-height: 1.55;
     }
-    .note {
-      background: #eff6ff;
-      border-left: 4px solid #3b82f6;
-      color: #1e3a8a;
-    }
-    .warn {
-      background: #fef2f2;
-      border-left: 4px solid #ef4444;
-      color: #991b1b;
-    }
-    .tip {
-      background: #ecfdf5;
-      border-left: 4px solid #1abc9c;
-      color: #065f46;
-    }
+    .note { background: #eff6ff; border-left: 4px solid #3b82f6; color: #1e3a8a; }
+    .warn { background: #fef2f2; border-left: 4px solid #ef4444; color: #991b1b; }
+    .tip { background: #f1f5f9; border-left: 4px solid #475569; color: #1e293b; }
     .note strong, .warn strong, .tip strong { color: inherit; }
 
     /* Steps */
-    .steps {
-      counter-reset: step;
-      list-style: none;
-      padding-left: 0;
-    }
+    .steps { counter-reset: step; list-style: none; padding-left: 0; }
     .steps > li {
-      counter-increment: step;
-      padding-left: 2.2rem;
-      position: relative;
-      margin: 0.7rem 0;
-      min-height: 1.7rem;
+      counter-increment: step; padding-left: 2.2rem; position: relative;
+      margin: 0.7rem 0; min-height: 1.7rem;
     }
     .steps > li::before {
-      content: counter(step);
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 1.7rem;
-      height: 1.7rem;
-      border-radius: 50%;
-      background: #1abc9c;
-      color: #fff;
-      font-weight: 700;
-      display: grid;
-      place-items: center;
-      font-size: 10pt;
+      content: counter(step); position: absolute; left: 0; top: 0;
+      width: 1.7rem; height: 1.7rem; border-radius: 50%;
+      background: #475569; color: #fff; font-weight: 700;
+      display: grid; place-items: center; font-size: 10pt;
     }
 
     /* Tables */
     table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 0.6rem 0 1rem;
+      width: 100%; border-collapse: collapse; margin: 0.6rem 0 1rem;
       font-size: 10pt;
     }
     th, td {
-      border: 1px solid #d0d4dc;
-      padding: 0.5rem 0.7rem;
-      text-align: left;
-      vertical-align: top;
+      border: 1px solid #d0d4dc; padding: 0.5rem 0.7rem;
+      text-align: left; vertical-align: top;
     }
-    th {
-      background: #f3f4f6;
-      font-weight: 700;
-      color: #0d1117;
-    }
+    th { background: #f3f4f6; font-weight: 700; color: #0d1117; }
 
     /* Key labels (button names, UI labels) */
     .kbd, .btn-label {
-      display: inline-block;
-      padding: 0.05rem 0.45rem;
-      border-radius: 4px;
-      font-family: 'Consolas', 'D2Coding', monospace;
-      font-size: 9.5pt;
-      background: #f3f4f6;
-      border: 1px solid #d0d4dc;
-      color: #1f2937;
+      display: inline-block; padding: 0.05rem 0.45rem; border-radius: 4px;
+      font-family: 'Consolas', 'D2Coding', monospace; font-size: 9.5pt;
+      background: #f3f4f6; border: 1px solid #d0d4dc; color: #1f2937;
       font-weight: 600;
     }
 
-    /* Footer (page number) */
+    /* Footer */
     .page-footer {
-      position: absolute;
-      bottom: 12mm;
-      left: 0;
-      right: 0;
-      text-align: center;
-      font-size: 9pt;
-      color: #9aa0a8;
+      position: absolute; bottom: 12mm; left: 0; right: 0;
+      text-align: center; font-size: 9pt; color: #9aa0a8;
     }
-    .page-footer .brand {
-      color: #1abc9c;
-      font-weight: 600;
-    }
+    .page-footer .brand { color: #475569; font-weight: 600; }
 
-    /* Icon list */
-    .icon-list {
-      list-style: none;
-      padding-left: 0;
-    }
-    .icon-list li {
-      padding: 0.4rem 0;
-      display: flex;
-      gap: 0.8rem;
-      align-items: flex-start;
-    }
-    .icon-list .ico {
-      font-size: 16pt;
-      width: 1.8rem;
-      text-align: center;
-      flex-shrink: 0;
-    }
+    .icon-list { list-style: none; padding-left: 0; }
+    .icon-list li { padding: 0.4rem 0; display: flex; gap: 0.8rem; align-items: flex-start; }
+    .icon-list .ico { font-size: 16pt; width: 1.8rem; text-align: center; flex-shrink: 0; }
     .icon-list .body { flex: 1; }
     .icon-list .body strong { display: block; margin-bottom: 0.2rem; }
 
-    /* FAQ */
-    .faq-q {
-      font-weight: 700;
-      color: #0d1117;
-      margin-top: 1rem;
+    .faq-q { font-weight: 700; color: #0d1117; margin-top: 1rem; }
+    .faq-q::before { content: 'Q. '; color: #475569; }
+    .faq-a { margin-top: 0.3rem; color: #374151; }
+    .faq-a::before { content: 'A. '; color: #6b7280; font-weight: 700; }
+
+    /* ========================= MOCKUP STYLES ========================= */
+    .mockup-wrap {
+      margin: 1rem 0 1.5rem;
+      display: flex;
+      gap: 1.2rem;
+      align-items: flex-start;
     }
-    .faq-q::before {
-      content: 'Q. ';
-      color: #1abc9c;
+    .mockup {
+      background: #15171c;
+      border: 1px solid #2a2e36;
+      border-radius: 10px;
+      padding: 0;
+      color: #e8e8ea;
+      font-family: 'Malgun Gothic', sans-serif;
+      font-size: 9pt;
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
     }
-    .faq-a {
-      margin-top: 0.3rem;
-      color: #374151;
+    .mockup-titlebar {
+      background: #0d1117;
+      padding: 0.35rem 0.7rem;
+      font-size: 8pt;
+      color: #9aa0a8;
+      border-bottom: 1px solid #2a2e36;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
     }
-    .faq-a::before {
-      content: 'A. ';
-      color: #6b7280;
-      font-weight: 700;
+    .mockup-titlebar::before {
+      content: ''; width: 8px; height: 8px; border-radius: 50%;
+      background: #ef4444;
+      box-shadow: 14px 0 0 #f59e0b, 28px 0 0 #10b981;
+    }
+    .mockup-titlebar-text { margin-left: 56px; }
+    .mockup-body { padding: 0.85rem 0.9rem; }
+
+    .mock-card {
+      background: #1d2026; border: 1px solid #2a2e36;
+      border-radius: 8px; padding: 0.7rem; margin: 0.4rem 0;
+    }
+    .mock-input {
+      background: #14161b; border: 1px solid #353a44; border-radius: 5px;
+      padding: 0.35rem 0.55rem; color: #888c95; font-size: 8.5pt;
+      margin: 0.2rem 0;
+    }
+    .mock-btn-primary {
+      background: #4f7df3; color: white; padding: 0.4rem 0.7rem;
+      border-radius: 5px; font-weight: 600; font-size: 8.5pt;
+      display: inline-block; text-align: center;
+    }
+    .mock-btn {
+      background: #2a2e36; color: #e8e8ea; padding: 0.4rem 0.7rem;
+      border-radius: 5px; border: 1px solid #353a44; font-size: 8.5pt;
+      display: inline-block; text-align: center;
+    }
+    .mock-btn-ghost {
+      background: transparent; color: #9aa0a8; padding: 0.4rem 0.7rem;
+      border: 1px dashed #353a44; border-radius: 5px; font-size: 8.5pt;
+      display: inline-block; text-align: center;
+    }
+    .mock-btn-danger {
+      background: #ef4444; color: white; padding: 0.4rem 0.6rem;
+      border-radius: 50%; font-size: 9pt; width: 28px; height: 28px;
+      display: inline-grid; place-items: center;
+    }
+    .mock-label {
+      color: #a0a4ad; font-size: 8pt; margin: 0.35rem 0 0.15rem;
+      display: block; font-weight: 500;
+    }
+    .mock-row {
+      display: flex; gap: 0.6rem; align-items: center;
+      margin: 0.4rem 0;
+    }
+    .mock-divider {
+      text-align: center; color: #6b7280; font-size: 8pt;
+      margin: 0.5rem 0; position: relative;
+    }
+    .mock-divider::before, .mock-divider::after {
+      content: ''; position: absolute; top: 50%;
+      width: 35%; height: 1px; background: #2a2e36;
+    }
+    .mock-divider::before { left: 0; }
+    .mock-divider::after { right: 0; }
+    .mock-section-title {
+      color: #a0a4ad; font-size: 7.5pt; font-weight: 600;
+      letter-spacing: 0.04em; margin-bottom: 0.2rem;
+    }
+    .mock-tile {
+      background: #1d2026; border: 1px solid #2a2e36;
+      border-radius: 6px; padding: 0.6rem; text-align: center;
+      color: #e8e8ea; font-size: 8pt;
+      width: 100px; height: 64px;
+      display: flex; flex-direction: column; justify-content: center;
+      align-items: center; gap: 0.2rem;
+    }
+    .mock-tile-avatar {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: white; font-weight: 700; font-size: 11pt;
+      display: grid; place-items: center;
+    }
+    .mock-tile.speaking {
+      outline: 2px solid #1abc9c;
+      box-shadow: 0 0 0 4px rgba(26, 188, 156, 0.18);
+    }
+    .mock-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 0.4rem; padding: 0.5rem; background: #15171c;
+      border-radius: 6px; margin: 0.3rem 0;
+    }
+    .mock-control-bar {
+      background: #1a1d23; border-top: 1px solid #2a2e36;
+      padding: 0.5rem; margin-top: 0.5rem;
+      display: flex; gap: 0.8rem; justify-content: center;
+      border-radius: 0 0 6px 6px;
+    }
+    .mock-control-item {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 0.15rem; font-size: 7pt; color: #a0a4ad;
+    }
+    .mock-control-item .ico {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: #2a2e36; display: grid; place-items: center;
+      font-size: 11pt;
+    }
+    .mock-control-item .ico.danger { background: #ef4444; }
+    .mock-banner {
+      padding: 0.5rem 0.6rem; border-radius: 6px; font-size: 8pt;
+      display: flex; gap: 0.5rem; align-items: center;
+      margin: 0.4rem 0;
+    }
+    .mock-banner.info { background: #1f3a4d; color: #cfeaff; border: 1px solid #2a4a5e; }
+    .mock-banner.success { background: #1a2e26; color: #d6fff0; border: 1px solid #1abc9c; }
+    .mock-banner.error { background: #3a1f1f; color: #ffd0d0; border: 1px solid #6b2929; }
+    .mock-chat-msg {
+      background: #2a2e36; padding: 0.35rem 0.5rem;
+      border-radius: 8px; font-size: 8pt;
+      max-width: 75%; margin: 0.25rem 0;
+    }
+    .mock-chat-msg.mine { background: #4f7df3; color: white; margin-left: auto; }
+    .mock-chat-file {
+      background: #2a2e36; padding: 0.45rem; border-radius: 8px;
+      display: flex; gap: 0.4rem; align-items: center;
+      font-size: 8pt; margin: 0.25rem 0;
+    }
+    .mock-progress {
+      height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px;
+      margin-top: 0.2rem; overflow: hidden; flex: 1;
+    }
+    .mock-progress-fill {
+      height: 100%; background: #1abc9c;
+    }
+    .mock-version-badge {
+      background: rgba(148, 163, 184, 0.08); color: #94a3b8;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      padding: 0.1rem 0.5rem; border-radius: 999px;
+      font-size: 7pt; font-weight: 600;
+      display: inline-block;
+    }
+    .callout-num {
+      display: inline-block; width: 22px; height: 22px;
+      border-radius: 50%; background: #475569; color: white;
+      font-weight: 700; font-size: 10pt; text-align: center;
+      line-height: 22px; margin-right: 0.4rem; vertical-align: middle;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    }
+    .legend {
+      flex: 1; padding-top: 0.5rem;
+    }
+    .legend ol {
+      list-style: none; padding: 0; counter-reset: cnum;
+    }
+    .legend ol li {
+      counter-increment: cnum; padding-left: 2rem;
+      position: relative; margin: 0.5rem 0;
+      font-size: 10pt; line-height: 1.5;
+    }
+    .legend ol li::before {
+      content: counter(cnum); position: absolute; left: 0; top: 1px;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: #475569; color: white;
+      font-weight: 700; font-size: 10pt; text-align: center;
+      line-height: 22px;
+    }
+    .legend strong { color: #0d1117; }
+
+    @media print {
+      .mockup-wrap { page-break-inside: avoid; }
     }
   </style>
 </head>
@@ -301,40 +359,43 @@
     <h1 class="section-title">목차</h1>
     <ul class="toc">
       <li><span class="num">1.</span><span class="name">프로그램 소개</span><span class="page-num">3</span></li>
-      <li><span class="num">2.</span><span class="name">시작하기 (설치 및 첫 실행)</span><span class="page-num">3</span></li>
-      <li><span class="num">3.</span><span class="name">로비 화면 둘러보기</span><span class="page-num">4</span></li>
-      <li><span class="num">4.</span><span class="name">회의 참여하기</span><span class="page-num">5</span></li>
-      <li><span class="num">5.</span><span class="name">회의 화면 사용법</span><span class="page-num">6</span></li>
-      <li><span class="num">6.</span><span class="name">오디오 장치 설정</span><span class="page-num">8</span></li>
-      <li><span class="num">7.</span><span class="name">듣기 전용 모드</span><span class="page-num">8</span></li>
-      <li><span class="num">8.</span><span class="name">자동 업데이트</span><span class="page-num">9</span></li>
-      <li><span class="num">9.</span><span class="name">문제 해결</span><span class="page-num">9</span></li>
-      <li><span class="num">10.</span><span class="name">자주 묻는 질문 (FAQ)</span><span class="page-num">10</span></li>
+      <li><span class="num">2.</span><span class="name">설치 및 첫 실행</span><span class="page-num">3</span></li>
+      <li><span class="num">3.</span><span class="name">로비 화면 (화면 예시)</span><span class="page-num">4</span></li>
+      <li><span class="num">4.</span><span class="name">회의 만들기 · 참가 · 저장 (화면 예시)</span><span class="page-num">5</span></li>
+      <li><span class="num">5.</span><span class="name">회의 화면 (화면 예시)</span><span class="page-num">6</span></li>
+      <li><span class="num">6.</span><span class="name">오디오 장치 설정 (화면 예시)</span><span class="page-num">7</span></li>
+      <li><span class="num">7.</span><span class="name">채팅 · 파일 공유 (화면 예시)</span><span class="page-num">8</span></li>
+      <li><span class="num">8.</span><span class="name">발언자 강조</span><span class="page-num">9</span></li>
+      <li><span class="num">9.</span><span class="name">듣기 전용 모드 (화면 예시)</span><span class="page-num">9</span></li>
+      <li><span class="num">10.</span><span class="name">자동 업데이트 (화면 예시)</span><span class="page-num">10</span></li>
+      <li><span class="num">11.</span><span class="name">문제 해결</span><span class="page-num">11</span></li>
+      <li><span class="num">12.</span><span class="name">자주 묻는 질문 (FAQ)</span><span class="page-num">12</span></li>
     </ul>
 
     <div class="tip" style="margin-top: 2.5rem;">
-      <strong>💡 본 메뉴얼의 활용</strong><br>
-      이 메뉴얼은 처음 사용하시는 분도 따라할 수 있도록 단계별로 구성되어 있습니다. 화면 캡처와 함께 설명되어 있어 빠르게 익히실 수 있습니다.
+      <strong>📖 본 메뉴얼의 구성</strong><br>
+      이 메뉴얼은 화면 예시(목업)와 함께 단계별로 설명합니다. 회색 박스가 실제 앱에서 보게 될 화면입니다.
+      각 화면 옆 또는 아래에 번호별 설명이 있습니다.
     </div>
 
     <div class="page-footer">
-      사내 미팅 프로그램 사내 미팅 프로그램 · <span class="brand">개발: 서정천</span>
+      사내 미팅 프로그램 · <span class="brand">개발: 서정천</span> · 페이지 2
     </div>
   </section>
 
-  <!-- ============ 1. INTRO ============ -->
+  <!-- ============ 1. INTRO + 2. INSTALL ============ -->
   <section class="page">
     <h1 class="section-title">1. 프로그램 소개</h1>
-    <p><strong>사내 미팅 프로그램</strong>은 회사 구성원들이 별도의 외부 서비스 가입 없이 사내에서 빠르고 안전하게 화상회의를 진행할 수 있도록 만든 전용 프로그램입니다.</p>
+    <p><strong>사내 미팅 프로그램</strong>은 회사 구성원들이 별도 외부 서비스 가입 없이 사내에서 빠르고 안전하게 화상회의를 진행할 수 있도록 만든 전용 프로그램입니다.</p>
 
     <h2>주요 기능</h2>
     <ul class="icon-list">
       <li><span class="ico">🎤</span><div class="body"><strong>음성 회의</strong>P2P 방식으로 다수의 참가자가 동시에 대화 가능합니다.</div></li>
       <li><span class="ico">🖥️</span><div class="body"><strong>화면 공유</strong>전체 화면 또는 특정 창을 선택해서 공유할 수 있습니다.</div></li>
-      <li><span class="ico">💬</span><div class="body"><strong>실시간 채팅</strong>회의 중에 텍스트 메시지를 주고받을 수 있습니다.</div></li>
+      <li><span class="ico">💬</span><div class="body"><strong>실시간 채팅 · 파일 공유</strong>텍스트와 파일을 P2P로 주고받습니다.</div></li>
+      <li><span class="ico">🔊</span><div class="body"><strong>발언자 자동 강조</strong>말하고 있는 사람의 타일에 청록 테두리가 표시됩니다.</div></li>
       <li><span class="ico">🎧</span><div class="body"><strong>듣기 전용 모드</strong>마이크가 없는 PC에서도 채팅과 듣기로 참여 가능합니다.</div></li>
-      <li><span class="ico">📋</span><div class="body"><strong>회의 코드 시스템</strong>4~10자리 영문/숫자 코드로 간편하게 입장합니다.</div></li>
-      <li><span class="ico">📌</span><div class="body"><strong>저장된 미팅</strong>자주 사용하는 회의방을 저장해 두고 빠르게 입장할 수 있습니다.</div></li>
+      <li><span class="ico">📌</span><div class="body"><strong>저장된 회의 · 최근 회의</strong>자주 사용하는 회의방을 저장해 두고 빠르게 입장합니다.</div></li>
       <li><span class="ico">🔄</span><div class="body"><strong>자동 업데이트</strong>새 버전이 출시되면 앱이 알아서 다운로드 및 설치합니다.</div></li>
     </ul>
 
@@ -343,17 +404,17 @@
       <tr><th>운영체제</th><td>Windows 10 이상 (64bit)</td></tr>
       <tr><th>메모리</th><td>최소 2GB, 권장 4GB</td></tr>
       <tr><th>인터넷</th><td>유선/무선 모두 가능 (최소 1Mbps 이상 권장)</td></tr>
-      <tr><th>마이크</th><td>일반 PC 내장 마이크 또는 USB/3.5mm 외장 마이크</td></tr>
+      <tr><th>마이크</th><td>내장 마이크 또는 USB/3.5mm 외장 마이크 (없어도 듣기 전용 모드로 입장 가능)</td></tr>
       <tr><th>스피커</th><td>스피커 또는 헤드폰</td></tr>
     </table>
 
-    <h1 class="section-title" style="margin-top: 2rem;">2. 시작하기</h1>
-    <h2>설치</h2>
+    <h1 class="section-title" style="margin-top: 2rem;">2. 설치 및 첫 실행</h1>
     <ol class="steps">
       <li>회사에서 받은 <span class="kbd">CompanyMeeting-Setup-X.X.X.exe</span> 파일을 더블클릭합니다.</li>
       <li>Windows SmartScreen 경고가 표시되면 <strong>"추가 정보"</strong> → <strong>"실행"</strong>을 차례로 클릭합니다.</li>
       <li>설치 마법사 안내에 따라 설치 경로를 선택하고 <strong>"설치"</strong> 버튼을 누릅니다.</li>
       <li>설치가 완료되면 바탕화면과 시작 메뉴에 <strong>"사내 회의"</strong> 단축 아이콘이 생성됩니다.</li>
+      <li>아이콘을 더블클릭해서 첫 실행합니다.</li>
     </ol>
 
     <div class="note">
@@ -362,214 +423,445 @@
     </div>
 
     <div class="page-footer">
-      사내 미팅 프로그램 사내 미팅 프로그램 · <span class="brand">개발: 서정천</span>
+      사내 미팅 프로그램 · <span class="brand">개발: 서정천</span> · 페이지 3
     </div>
   </section>
 
   <!-- ============ 3. LOBBY ============ -->
   <section class="page">
-    <h1 class="section-title">3. 로비 화면 둘러보기</h1>
-    <p>프로그램을 실행하면 가장 먼저 만나는 화면이 <strong>로비</strong>입니다. 여기서 회의를 만들거나 참여할 수 있습니다.</p>
+    <h1 class="section-title">3. 로비 화면</h1>
+    <p>프로그램을 실행하면 가장 먼저 보게 되는 화면입니다.</p>
 
-    <h2>로비 화면 구성</h2>
-    <ul class="icon-list">
-      <li><span class="ico">🏷️</span><div class="body"><strong>회로 기판 스타일 로고</strong>화면 상단에 표시됩니다.</div></li>
-      <li><span class="ico">📝</span><div class="body"><strong>이름 입력란</strong>회의에서 다른 참가자에게 표시될 이름을 입력합니다. (마지막 입력 이름은 자동 저장됨)</div></li>
-      <li><span class="ico">➕</span><div class="body"><strong>새 미팅 만들기 버튼</strong>새로운 회의방을 생성합니다. 회의 제목과 코드를 직접 정할 수 있습니다.</div></li>
-      <li><span class="ico">🔑</span><div class="body"><strong>코드로 참여 버튼</strong>다른 사람이 알려준 회의 코드를 입력해서 입장합니다.</div></li>
-      <li><span class="ico">📌</span><div class="body"><strong>저장된 미팅 목록</strong>이전에 저장해 둔 회의들이 표시됩니다. 현재 참가자 수도 실시간으로 확인 가능합니다.</div></li>
-      <li><span class="ico">📖</span><div class="body"><strong>사용자 메뉴얼 버튼</strong>이 PDF 문서를 다시 볼 수 있습니다.</div></li>
-    </ul>
-
-    <h2>이름 입력</h2>
-    <p>회의에 입장하기 전 화면 상단의 이름 입력란에 본인 이름을 입력합니다. 한 번 입력한 이름은 자동으로 저장되어 다음 실행 시 자동으로 채워집니다.</p>
-
-    <div class="tip">
-      <strong>이름 표시 권장</strong><br>
-      예: "홍길동", "본사 홍길동", "VINA 김철수" 등 부서/지역을 함께 적으면 다른 참가자가 한눈에 알아볼 수 있어 좋습니다.
+    <div class="mockup-wrap">
+      <div class="mockup" style="width: 360px;">
+        <div class="mockup-titlebar"><span class="mockup-titlebar-text">사내 미팅 프로그램</span></div>
+        <div class="mockup-body" style="display: flex; gap: 0.6rem;">
+          <div style="flex: 1.1; padding-right: 0.2rem;">
+            <div class="mock-card">
+              <div style="text-align: center; margin: 0.5rem 0;">
+                <div style="display: inline-block; width: 36px; height: 36px; border-radius: 8px; background: linear-gradient(135deg, #cbd5e1, #475569);"></div>
+              </div>
+              <div class="mock-label">이름 ❶</div>
+              <div class="mock-input">서정천</div>
+              <div class="mock-label">새 회의 만들기 ❷</div>
+              <div class="mock-input">고정 코드 (비워두면 랜덤)</div>
+              <div class="mock-btn-primary" style="display: block; margin: 0.3rem 0;">만들기</div>
+              <div class="mock-divider">또는</div>
+              <div class="mock-label">코드로 참가 ❸</div>
+              <div class="mock-input">회의 코드</div>
+              <div class="mock-btn" style="display: block; margin: 0.3rem 0;">참가</div>
+              <div class="mock-btn-ghost" style="display: block; margin: 0.4rem 0 0;">📖 사용자 메뉴얼 ❹</div>
+            </div>
+          </div>
+          <div style="flex: 0.9;">
+            <div class="mock-card">
+              <div style="display: flex; justify-content: space-between;">
+                <div style="font-weight: 600; font-size: 8.5pt;">최근 회의 ❺</div>
+              </div>
+              <div style="background: #15171c; padding: 0.3rem; border-radius: 5px; margin-top: 0.3rem; font-size: 7.5pt; display: flex; gap: 0.2rem; align-items: center;">
+                <div style="flex: 1;">QA Sync<br><span style="color:#6b7280">QASYNC</span></div>
+                <div style="color:#1abc9c">📌</div>
+                <div style="color:#6b7280">✕</div>
+              </div>
+            </div>
+            <div class="mock-card">
+              <div style="display: flex; justify-content: space-between;">
+                <div style="font-weight: 600; font-size: 8.5pt;">저장된 회의 ❻</div>
+                <div style="font-size: 7pt; color: #1abc9c;">+ 추가</div>
+              </div>
+              <div style="background: #15171c; padding: 0.3rem; border-radius: 5px; margin-top: 0.3rem; font-size: 7.5pt;">
+                <div style="display: flex; align-items: center; gap: 0.3rem;">
+                  <span style="color: #1abc9c;">●</span>
+                  <div style="flex: 1;">본사/VINA 주간회의<br><span style="color:#6b7280">WEEKLY</span></div>
+                  <div style="color: #1abc9c; font-weight: 700;">2명</div>
+                </div>
+              </div>
+            </div>
+            <div class="mock-card" style="padding: 0.4rem 0.7rem;">
+              <div style="font-weight: 600; font-size: 8.5pt;">오디오 장치 ❼</div>
+              <div style="font-size: 7.5pt; color: #6b7280; margin-top: 0.2rem;">🎤 마이크 / 🔊 스피커</div>
+            </div>
+          </div>
+        </div>
+        <div style="padding: 0.3rem 0.7rem; border-top: 1px solid #2a2e36;">
+          <span class="mock-version-badge">v1.7.x · 개발자 서정천 ❽</span>
+        </div>
+      </div>
+      <div class="legend">
+        <ol>
+          <li><strong>이름 입력</strong> — 회의에서 다른 참가자에게 표시될 이름. 마지막 입력값 자동 저장.</li>
+          <li><strong>새 회의 만들기</strong> — 코드를 직접 정하거나 비워두면 랜덤 코드로 회의 생성.</li>
+          <li><strong>코드로 참가</strong> — 다른 사람이 알려준 회의 코드를 입력해서 입장.</li>
+          <li><strong>사용자 메뉴얼</strong> — 지금 보고 계신 이 문서를 다시 봅니다.</li>
+          <li><strong>최근 회의</strong> — 최근에 들어간 회의방 자동 기록 (최대 10개).</li>
+          <li><strong>저장된 회의</strong> — 자주 쓰는 회의를 명시적으로 저장. 녹색 점은 현재 참가자가 있다는 뜻.</li>
+          <li><strong>오디오 장치</strong> — 사용할 마이크/스피커 선택.</li>
+          <li><strong>버전 배지</strong> — 클릭하면 변경 이력 확인 가능.</li>
+        </ol>
+      </div>
     </div>
 
     <div class="page-footer">
-      사내 미팅 프로그램 사내 미팅 프로그램 · <span class="brand">개발: 서정천</span>
+      사내 미팅 프로그램 · <span class="brand">개발: 서정천</span> · 페이지 4
     </div>
   </section>
 
   <!-- ============ 4. JOIN MEETING ============ -->
   <section class="page">
-    <h1 class="section-title">4. 회의 참여하기</h1>
+    <h1 class="section-title">4. 회의 만들기 · 참가 · 저장</h1>
 
     <h2>새 회의 만들기</h2>
     <ol class="steps">
-      <li>로비에서 <span class="btn-label">➕ 새 미팅 만들기</span> 버튼을 클릭합니다.</li>
-      <li>회의 제목을 입력합니다. (예: "본사/VINA 주간회의")</li>
-      <li>회의 코드를 입력합니다. (4~10자, 영문 대문자 + 숫자만 가능)<br>
-        예: <span class="kbd">WEEKLY</span>, <span class="kbd">MORNING1</span>, <span class="kbd">ABCD123</span></li>
-      <li><strong>만들기</strong> 버튼을 클릭하면 즉시 회의방에 입장합니다.</li>
-      <li>다른 참가자에게 <strong>회의 코드</strong>를 알려주면 입장할 수 있습니다.</li>
+      <li>이름이 입력되어 있는지 확인합니다.</li>
+      <li>"새 회의 만들기" 아래 칸에 코드를 입력하거나 비워둡니다. 비워두면 랜덤 6자리 코드가 자동 생성됩니다.</li>
+      <li><strong>코드 규칙</strong>: 영문 대문자 + 숫자, 4~10자 (예: <span class="kbd">WEEKLY</span>, <span class="kbd">DAILY2</span>, <span class="kbd">ABC123</span>)</li>
+      <li><span class="mock-btn-primary" style="font-size: 9pt;">만들기</span> 버튼 클릭 → 즉시 회의방 입장.</li>
+      <li>회의 코드를 다른 참가자에게 메신저/이메일로 공유합니다.</li>
     </ol>
+
+    <h2>코드로 참가</h2>
+    <ol class="steps">
+      <li>주최자에게 받은 회의 코드를 "코드로 참가" 칸에 입력합니다.</li>
+      <li><span class="mock-btn" style="font-size: 9pt;">참가</span> 버튼 클릭 → 즉시 회의방 입장.</li>
+    </ol>
+
+    <h2>최근 회의 · 저장된 회의 차이</h2>
+    <table>
+      <tr>
+        <th style="width: 25%;">목록</th>
+        <th>자동 vs 수동</th>
+        <th>표시 정보</th>
+      </tr>
+      <tr>
+        <td><strong>최근 회의</strong></td>
+        <td>자동 (회의 입장 시 기록)</td>
+        <td>이름(있으면) + 코드, 참가자 수 미표시</td>
+      </tr>
+      <tr>
+        <td><strong>저장된 회의</strong></td>
+        <td>수동 (+ 추가 또는 📌 클릭)</td>
+        <td>이름 + 코드, <strong>현재 참가자 수 실시간 표시</strong></td>
+      </tr>
+    </table>
 
     <div class="tip">
-      <strong>코드 정하는 팁</strong><br>
-      모든 사람이 외우기 쉬운 단어로 정하면 좋습니다. 영구적으로 쓸 회의(예: 주간회의)는 <span class="kbd">WEEKLY</span> 처럼 의미있는 코드로 정해두고 저장해 두세요.
+      <strong>💡 활용 예시</strong><br>
+      매주 정기적으로 하는 회의(주간회의, 일일 스탠드업 등) → <strong>저장된 회의</strong>에 추가해서 한 클릭 입장.<br>
+      일회성 회의 → <strong>최근 회의</strong>에 자동 기록되어 같은 날 다시 들어가기 쉬움.
     </div>
 
-    <h2>코드로 참여</h2>
-    <ol class="steps">
-      <li>로비에서 <span class="btn-label">🔑 코드로 참여</span> 버튼을 클릭합니다.</li>
-      <li>주최자에게 받은 회의 코드를 입력합니다.</li>
-      <li><strong>참여</strong> 버튼을 클릭하면 즉시 회의방에 입장합니다.</li>
-    </ol>
+    <h3>최근 회의를 저장된 회의로 승격</h3>
+    <p>최근 회의 카드 우측의 <strong>📌</strong> 버튼을 누르면 저장된 회의 목록으로 이동합니다. 최근 회의에서는 자동으로 삭제됩니다.</p>
 
-    <h2>저장된 미팅으로 빠르게 입장</h2>
-    <p>자주 사용하는 회의방은 저장해 두면 한 번의 클릭으로 입장할 수 있습니다.</p>
-    <ol class="steps">
-      <li>회의에 한 번 입장하면 자동으로 저장됩니다.</li>
-      <li>로비의 <strong>저장된 미팅</strong> 목록에 표시됩니다.</li>
-      <li>제목, 코드, 현재 참가자 수가 함께 표시됩니다.</li>
-      <li>녹색 점(●)이 표시되면 현재 누군가 회의에 참가 중이라는 뜻입니다.</li>
-      <li>카드를 클릭하면 즉시 그 회의방에 입장합니다.</li>
-    </ol>
-
-    <div class="note">
-      <strong>저장된 미팅의 삭제</strong><br>
-      저장된 미팅 카드 우측의 ✕ 버튼을 누르면 목록에서 제거할 수 있습니다. 이 동작은 회의 자체를 삭제하는 게 아니라 본인 PC의 빠른 입장 목록에서만 빼는 것입니다.
-    </div>
+    <h3>회의방의 유지</h3>
+    <p>참가자가 모두 나가도 회의 코드는 그대로 유지됩니다. 같은 코드로 다시 입장하면 같은 회의방으로 들어갑니다.</p>
 
     <div class="page-footer">
-      사내 미팅 프로그램 사내 미팅 프로그램 · <span class="brand">개발: 서정천</span>
+      사내 미팅 프로그램 · <span class="brand">개발: 서정천</span> · 페이지 5
     </div>
   </section>
 
   <!-- ============ 5. MEETING SCREEN ============ -->
   <section class="page">
-    <h1 class="section-title">5. 회의 화면 사용법</h1>
+    <h1 class="section-title">5. 회의 화면</h1>
 
-    <h2>회의 화면 구성</h2>
-    <ul class="icon-list">
-      <li><span class="ico">⏱</span><div class="body"><strong>경과 시간</strong>좌측 상단에 현재 시각과 회의 경과 시간이 표시됩니다.</div></li>
-      <li><span class="ico">📋</span><div class="body"><strong>회의 코드 영역</strong>우측 상단에서 회의 코드 확인 및 클립보드 복사가 가능합니다.</div></li>
-      <li><span class="ico">👥</span><div class="body"><strong>참가자 수</strong>현재 회의에 접속한 인원 수가 표시됩니다.</div></li>
-      <li><span class="ico">🟦</span><div class="body"><strong>참가자 타일</strong>각 참가자가 사각형 영역으로 표시됩니다. 음성만 사용 시 이름 첫 글자가 원형 아바타로 표시됩니다.</div></li>
-      <li><span class="ico">🎮</span><div class="body"><strong>하단 제어 막대</strong>음소거, 화면 공유, 채팅, 나가기 버튼이 위치합니다.</div></li>
-    </ul>
-
-    <h2>음소거 / 음소거 해제</h2>
-    <p>하단의 <span class="kbd">🎤 음소거</span> 버튼을 클릭하면 본인의 마이크가 음소거됩니다. 다시 클릭하면 해제됩니다.</p>
-    <ul>
-      <li>음소거 시 버튼이 빨간색 <span class="kbd">🔇</span>으로 바뀝니다.</li>
-      <li>다른 참가자에게도 본인의 음소거 상태가 표시됩니다.</li>
-    </ul>
-
-    <h2>화면 공유</h2>
-    <ol class="steps">
-      <li>하단의 <span class="kbd">🖥️ 화면 공유</span> 버튼을 클릭합니다.</li>
-      <li>Windows 화면 선택 창이 뜨면 공유할 화면이나 창을 선택합니다.</li>
-      <li><strong>공유</strong> 버튼을 누르면 다른 참가자들에게 화면이 표시됩니다.</li>
-      <li>공유를 중지하려면 다시 <span class="kbd">공유 중지</span> 버튼을 클릭합니다.</li>
-    </ol>
-
-    <div class="tip">
-      <strong>전체 화면 vs 특정 창 공유</strong><br>
-      특정 창만 선택하면 알림이나 다른 앱이 화면에 보여도 다른 참가자에게는 노출되지 않습니다. 민감한 정보가 있을 때는 특정 창 공유를 권장합니다.
+    <div class="mockup-wrap">
+      <div class="mockup" style="width: 400px;">
+        <div class="mockup-titlebar"><span class="mockup-titlebar-text">사내 미팅 프로그램</span></div>
+        <div style="display: flex; justify-content: space-between; padding: 0.45rem 0.7rem; border-bottom: 1px solid #2a2e36; background: #1a1d23; font-size: 8pt;">
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <span>⏱ 00:32</span>
+            <span style="color: #6b7280;">·</span>
+            <span>본사/VINA 주간회의 ❶</span>
+          </div>
+          <div style="display: flex; gap: 0.4rem; align-items: center;">
+            <div style="background: #2a2e36; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 7.5pt; color: #1abc9c; font-weight: 700;">WEEKLY 📋 ❷</div>
+            <span>참가자 3명 ❸</span>
+          </div>
+        </div>
+        <div class="mock-grid" style="grid-template-columns: repeat(2, 1fr);">
+          <div class="mock-tile speaking">
+            <div class="mock-tile-avatar">서</div>
+            <div>서정천 (나) ❹</div>
+          </div>
+          <div class="mock-tile">
+            <div class="mock-tile-avatar" style="background: linear-gradient(135deg, #f97316, #dc2626);">김</div>
+            <div>김철수</div>
+          </div>
+          <div class="mock-tile">
+            <div class="mock-tile-avatar" style="background: linear-gradient(135deg, #10b981, #047857);">박</div>
+            <div>박영희 <span style="font-size: 6.5pt; background: #ef6868; color: white; padding: 0.05rem 0.25rem; border-radius: 3px;">음소거</span></div>
+          </div>
+          <div class="mock-tile" style="background: #0d1117; border-color: #1abc9c;">
+            <div style="font-size: 14pt;">🖥️</div>
+            <div style="font-size: 7pt; color: #1abc9c;">화면 공유 중</div>
+          </div>
+        </div>
+        <div class="mock-control-bar">
+          <div class="mock-control-item"><div class="ico">🎤</div><span>음소거 ❺</span></div>
+          <div class="mock-control-item"><div class="ico">🖥️</div><span>화면공유 ❻</span></div>
+          <div class="mock-control-item"><div class="ico">💬</div><span>채팅 ❼</span></div>
+          <div class="mock-control-item"><div class="ico danger">📞</div><span>나가기 ❽</span></div>
+        </div>
+      </div>
+      <div class="legend">
+        <ol>
+          <li><strong>경과 시간 + 회의 제목</strong> — 회의가 시작된 후 흐른 시간과 회의명.</li>
+          <li><strong>회의 코드 + 복사 버튼</strong> — 클릭하면 코드가 클립보드에 복사됩니다.</li>
+          <li><strong>참가자 수</strong> — 현재 회의방의 인원수.</li>
+          <li><strong>발언자 강조 (청록 테두리)</strong> — 현재 말하고 있는 참가자에 표시됩니다.</li>
+          <li><strong>음소거 버튼</strong> — 본인 마이크 ON/OFF. 회색=정상, 빨강=음소거.</li>
+          <li><strong>화면 공유</strong> — 전체 화면 또는 특정 창 선택 가능.</li>
+          <li><strong>채팅 열기</strong> — 우측에 채팅 패널이 열림. 미확인 메시지가 있으면 숫자 배지 표시.</li>
+          <li><strong>나가기</strong> — 회의 종료, 로비로 이동.</li>
+        </ol>
+      </div>
     </div>
 
-    <h2>채팅</h2>
-    <p>하단의 <span class="kbd">💬 채팅</span> 버튼을 클릭하면 우측에 채팅 패널이 열립니다.</p>
-    <ul>
-      <li>새 메시지가 있는데 채팅이 닫혀 있으면 버튼에 숫자 배지가 표시됩니다.</li>
-      <li>메시지 입력란에 글을 쓰고 <strong>Enter</strong>를 누르거나 <strong>전송</strong> 버튼을 클릭합니다.</li>
-      <li>채팅 내역은 회의가 진행되는 동안만 유지되며 종료 시 사라집니다.</li>
-    </ul>
+    <h3>참가자 화면 확대</h3>
+    <p>참가자 타일을 <strong>더블클릭</strong>하면 확대됩니다. 다시 더블클릭하면 원래대로.</p>
 
     <div class="page-footer">
-      사내 미팅 프로그램 사내 미팅 프로그램 · <span class="brand">개발: 서정천</span>
+      사내 미팅 프로그램 · <span class="brand">개발: 서정천</span> · 페이지 6
     </div>
   </section>
 
+  <!-- ============ 6. AUDIO SETTINGS ============ -->
   <section class="page">
-    <h1 class="section-title">5. 회의 화면 사용법 <span style="font-size: 12pt; font-weight: 500; color: #6b7280;">(이어서)</span></h1>
-
-    <h2>회의 코드 공유</h2>
-    <ol class="steps">
-      <li>회의 화면 우측 상단의 <strong>회의 코드 영역</strong>을 클릭합니다.</li>
-      <li>코드가 클립보드에 복사되고 일시적으로 <strong>"복사됨"</strong>으로 표시됩니다.</li>
-      <li>메신저, 이메일 등에 붙여넣어 다른 사람에게 전달합니다.</li>
-    </ol>
-
-    <h2>회의 나가기</h2>
-    <p>하단의 빨간색 <span class="kbd">📞 나가기</span> 버튼을 클릭하면 회의를 종료하고 로비로 돌아갑니다.</p>
-
-    <div class="note">
-      <strong>회의방 자체는 사라지지 않습니다</strong><br>
-      마지막 한 명이 나가도 회의 코드는 그대로 유지됩니다. 같은 코드로 다시 입장하면 같은 회의방으로 들어갑니다.
-    </div>
-
-    <h2>참가자 화면 확대</h2>
-    <p>다른 참가자의 화면(또는 공유된 화면)을 <strong>더블클릭</strong>하면 그 참가자의 화면이 크게 확대됩니다. 다시 더블클릭하면 원래 상태로 돌아갑니다.</p>
-
-    <h1 class="section-title" style="margin-top: 2.5rem;">6. 오디오 장치 설정</h1>
+    <h1 class="section-title">6. 오디오 장치 설정</h1>
     <p>여러 마이크나 스피커가 연결된 환경에서 사용할 장치를 선택할 수 있습니다.</p>
 
-    <h2>설정 열기</h2>
-    <ol class="steps">
-      <li>회의 화면 하단의 <strong>🎤 음소거</strong> 버튼 위쪽에 있는 <strong>▲ 화살표</strong>를 클릭합니다.</li>
-      <li>오디오 설정 팝업이 나타납니다.</li>
-      <li><strong>마이크</strong>와 <strong>스피커</strong> 드롭다운에서 사용할 장치를 선택합니다.</li>
-      <li>선택은 자동으로 저장되어 다음번 실행 시에도 유지됩니다.</li>
-    </ol>
-
-    <div class="tip">
-      <strong>장치 핫스왑 지원</strong><br>
-      회의 중에도 마이크나 스피커를 바꿀 수 있습니다. 회의가 끊기지 않고 즉시 적용됩니다.
+    <div class="mockup-wrap">
+      <div class="mockup" style="width: 280px;">
+        <div class="mockup-titlebar"><span class="mockup-titlebar-text">오디오 설정</span></div>
+        <div class="mockup-body">
+          <div class="mock-label">🎤 마이크 ❶</div>
+          <div class="mock-input">USB Headset Mic</div>
+          <div class="mock-label" style="margin-top: 0.6rem;">🔊 스피커 ❷</div>
+          <div class="mock-input">Realtek Audio Speaker</div>
+          <div style="margin-top: 0.8rem; padding-top: 0.5rem; border-top: 1px solid #2a2e36; font-size: 7.5pt; color: #6b7280; text-align: center;">
+            선택은 자동 저장됩니다
+          </div>
+        </div>
+      </div>
+      <div class="legend">
+        <ol>
+          <li><strong>마이크 선택</strong> — 사용 가능한 모든 입력 장치 목록. 회의 중에도 즉시 전환 가능.</li>
+          <li><strong>스피커 선택</strong> — 다른 참가자 음성을 어느 장치로 들을지 선택.</li>
+        </ol>
+        <div class="tip" style="margin-top: 1rem;">
+          <strong>핫스왑 지원</strong><br>
+          회의 중에 마이크나 스피커를 바꿔도 연결이 끊기지 않고 즉시 적용됩니다.
+        </div>
+      </div>
     </div>
 
-    <h1 class="section-title" style="margin-top: 2.5rem;">7. 듣기 전용 모드</h1>
-    <p>마이크가 없거나 사용할 수 없는 PC에서도 회의에 참여할 수 있는 모드입니다.</p>
-
-    <h2>듣기 전용 모드로 입장하기</h2>
-    <ol class="steps">
-      <li>일반 방식으로 회의 입장을 시도합니다.</li>
-      <li>마이크 관련 에러가 발생하면 에러 화면에서 <strong>🎧 마이크 없이 입장 (듣기/채팅만)</strong> 버튼을 클릭합니다.</li>
-      <li>회의방에 입장하며, 상단에 청록색 안내 배너가 표시됩니다.</li>
-    </ol>
-
-    <h2>듣기 전용 모드에서 가능한 것</h2>
+    <h3>설정 열기</h3>
     <ul>
-      <li>✅ 다른 참가자의 음성 듣기</li>
-      <li>✅ 다른 참가자의 화면 공유 보기</li>
-      <li>✅ 본인의 화면 공유 (마이크와 무관)</li>
-      <li>✅ 채팅 송수신</li>
-      <li>❌ 본인 음성 발신 (마이크가 없으므로)</li>
+      <li><strong>회의 화면</strong>: 하단 🎤 버튼 위쪽의 <strong>▲ 화살표</strong> 클릭 → 팝오버 표시.</li>
+      <li><strong>로비 화면</strong>: 우측 하단 "오디오 장치" 패널에서 직접 변경.</li>
     </ul>
 
     <div class="page-footer">
-      사내 미팅 프로그램 사내 미팅 프로그램 · <span class="brand">개발: 서정천</span>
+      사내 미팅 프로그램 · <span class="brand">개발: 서정천</span> · 페이지 7
     </div>
   </section>
 
-  <!-- ============ 8. UPDATE ============ -->
+  <!-- ============ 7. CHAT + FILE ============ -->
   <section class="page">
-    <h1 class="section-title">8. 자동 업데이트</h1>
+    <h1 class="section-title">7. 채팅 · 파일 공유</h1>
+    <p>회의 화면 하단의 <strong>💬 채팅</strong> 버튼을 클릭하면 우측에 채팅 패널이 열립니다.</p>
+
+    <div class="mockup-wrap">
+      <div class="mockup" style="width: 280px;">
+        <div class="mockup-titlebar"><span class="mockup-titlebar-text">채팅</span></div>
+        <div class="mockup-body" style="display: flex; flex-direction: column; gap: 0.3rem; min-height: 320px;">
+          <div style="font-size: 7pt; color: #6b7280;">김철수 · 오후 2:15</div>
+          <div class="mock-chat-msg">자료 보내드릴게요</div>
+          <div class="mock-chat-file" style="margin-right: auto;">
+            <div style="font-size: 12pt;">📎</div>
+            <div style="flex: 1;">
+              <div style="font-weight: 600;">설계도면_v3.dwg</div>
+              <div style="color: #9aa0a8; font-size: 7pt;">2.3 MB · 받기 완료</div>
+            </div>
+            <div style="background: #1abc9c; color: #0f1a18; font-weight: 700; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 7pt;">저장 ❷</div>
+          </div>
+          <div style="font-size: 7pt; color: #6b7280; text-align: right; margin-top: 0.3rem;">나 · 오후 2:16</div>
+          <div class="mock-chat-msg mine">확인했습니다</div>
+          <div class="mock-chat-file" style="margin-left: auto; background: #1f3a4d;">
+            <div style="font-size: 12pt;">📎</div>
+            <div style="flex: 1;">
+              <div style="font-weight: 600;">검토의견.pdf</div>
+              <div style="color: #cfeaff; font-size: 7pt;">156 KB · 전송 중 67%</div>
+              <div class="mock-progress" style="margin-top: 0.2rem;">
+                <div class="mock-progress-fill" style="width: 67%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="background: #14161b; border-top: 1px solid #2a2e36; padding: 0.4rem; display: flex; gap: 0.3rem;">
+          <div style="width: 26px; height: 26px; border-radius: 5px; background: #1d2026; border: 1px solid #353a44; display: grid; place-items: center; font-size: 9pt;">📎 ❶</div>
+          <div style="flex: 1; background: #1d2026; border: 1px solid #353a44; border-radius: 5px; padding: 0.3rem 0.5rem; font-size: 7.5pt; color: #6b7280;">메시지 입력</div>
+          <div style="background: #4f7df3; color: white; padding: 0.3rem 0.6rem; border-radius: 5px; font-size: 8pt; font-weight: 600;">전송</div>
+        </div>
+      </div>
+      <div class="legend">
+        <ol>
+          <li><strong>파일 첨부 (📎)</strong> — 클릭하면 파일 선택 창. 또는 채팅창에 파일을 <strong>직접 끌어다 놓기(드래그앤드롭)</strong>도 됩니다.</li>
+          <li><strong>저장 버튼</strong> — 받은 파일을 PC에 다운로드. 시스템 다운로드 폴더에 저장됩니다.</li>
+        </ol>
+        <div class="note" style="margin-top: 1rem;">
+          <strong>파일 전송 방식</strong><br>
+          모든 파일은 <strong>P2P (참가자 PC 사이)</strong>로 직접 전송되며 서버에 저장되지 않습니다.<br>
+          최대 크기: <strong>200 MB</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="tip">
+      <strong>활용 예시</strong><br>
+      회의 중 발표 자료(.pdf, .pptx), 설계 도면(.dwg), Excel 표, 이미지 파일을 즉시 공유 가능. 화면 공유보다 빠르고 회의 후에도 저장한 파일은 PC에 남습니다.
+    </div>
+
+    <div class="page-footer">
+      사내 미팅 프로그램 · <span class="brand">개발: 서정천</span> · 페이지 8
+    </div>
+  </section>
+
+  <!-- ============ 8. ACTIVE SPEAKER + 9. LISTEN-ONLY ============ -->
+  <section class="page">
+    <h1 class="section-title">8. 발언자 강조</h1>
+    <p>회의 화면에서 현재 말하고 있는 참가자의 타일에 <strong>청록색 펄스 테두리</strong>가 자동으로 표시됩니다.</p>
+
+    <div class="mockup-wrap">
+      <div class="mock-grid" style="grid-template-columns: repeat(2, 1fr); width: 240px;">
+        <div class="mock-tile speaking">
+          <div class="mock-tile-avatar">서</div>
+          <div>서정천</div>
+          <div style="font-size: 6.5pt; color: #1abc9c; margin-top: 0.1rem;">🔊 발언 중</div>
+        </div>
+        <div class="mock-tile">
+          <div class="mock-tile-avatar" style="background: linear-gradient(135deg, #f97316, #dc2626);">김</div>
+          <div>김철수</div>
+        </div>
+      </div>
+      <div class="legend">
+        <ul>
+          <li>음성 레벨을 자동으로 감지해서 표시됩니다 (별도 설정 불필요).</li>
+          <li><strong>음소거 상태인 참가자</strong>는 강조되지 않습니다.</li>
+          <li><strong>듣기 전용 모드</strong>인 본인은 강조되지 않습니다 (마이크 없음).</li>
+          <li>여러 명이 동시에 말하면 여러 타일에 동시 표시됩니다.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h1 class="section-title" style="margin-top: 2rem;">9. 듣기 전용 모드</h1>
+    <p>마이크가 없거나 사용할 수 없는 PC에서도 회의에 참여할 수 있는 모드입니다.</p>
+
+    <div class="mockup-wrap">
+      <div class="mockup" style="width: 280px;">
+        <div class="mockup-titlebar"><span class="mockup-titlebar-text">마이크 오류</span></div>
+        <div class="mockup-body" style="text-align: center; padding: 1.2rem 0.9rem;">
+          <div style="font-weight: 700; color: #e8e8ea; margin-bottom: 0.5rem;">마이크를 찾을 수 없습니다</div>
+          <div style="font-size: 7.5pt; color: #ef6868; line-height: 1.5;">
+            PC에 마이크가 연결되어 있는지, Windows 설정에서 앱의 마이크 접근이 허용되어 있는지 확인해 주세요.
+          </div>
+          <div style="margin-top: 0.7rem; display: flex; flex-direction: column; gap: 0.3rem;">
+            <div class="mock-btn-primary" style="font-size: 7.5pt;">Windows 마이크 설정 열기</div>
+            <div class="mock-btn-primary" style="font-size: 7.5pt;">다시 시도</div>
+            <div style="background: #1f3a4d; color: #7fd0ff; border: 1px solid #2a4a5e; padding: 0.4rem; border-radius: 5px; font-size: 7.5pt; font-weight: 600;">🎧 마이크 없이 입장 (듣기/채팅만) ❶</div>
+            <div class="mock-btn" style="font-size: 7.5pt;">로비로 돌아가기</div>
+          </div>
+        </div>
+      </div>
+      <div class="legend">
+        <ol>
+          <li><strong>마이크 없이 입장</strong> 클릭 → 듣기 전용 모드로 회의 입장.</li>
+        </ol>
+        <h3 style="margin-top: 0.8rem;">듣기 전용 모드에서 가능한 것</h3>
+        <ul>
+          <li>✅ 다른 참가자 음성 듣기</li>
+          <li>✅ 화면 공유 보기</li>
+          <li>✅ 본인 화면 공유</li>
+          <li>✅ 채팅 송수신, 파일 송수신</li>
+          <li>❌ 본인 음성 발신 (마이크 없음)</li>
+        </ul>
+        <p style="font-size: 9pt; color: #6b7280; margin-top: 0.6rem;">회의실 상단에 청록색 안내 배너가 표시되어 듣기 전용 상태가 명확히 보입니다.</p>
+      </div>
+    </div>
+
+    <div class="page-footer">
+      사내 미팅 프로그램 · <span class="brand">개발: 서정천</span> · 페이지 9
+    </div>
+  </section>
+
+  <!-- ============ 10. AUTO UPDATE ============ -->
+  <section class="page">
+    <h1 class="section-title">10. 자동 업데이트</h1>
     <p>새 버전이 출시되면 앱이 자동으로 다운로드하여 적용합니다. 사용자의 별도 조작이 필요 없습니다.</p>
 
-    <h2>업데이트 동작 흐름</h2>
+    <h2>업데이트 진행 화면</h2>
+    <div style="display: flex; flex-direction: column; gap: 0.6rem; margin: 0.8rem 0;">
+      <div class="mockup" style="padding: 0;">
+        <div class="mockup-body">
+          <div class="mock-banner info" style="font-size: 9pt;">
+            <span>🔔</span>
+            <div>
+              <strong>새 버전 v1.7.x 발견</strong><br>
+              <span style="font-size: 7.5pt;">백그라운드에서 다운로드를 시작합니다…</span>
+            </div>
+          </div>
+          <div class="mock-banner info" style="font-size: 9pt;">
+            <span>⬇️</span>
+            <div style="flex: 1;">
+              <strong>다운로드 중 67%</strong>
+              <div class="mock-progress" style="margin-top: 0.2rem;">
+                <div class="mock-progress-fill" style="width: 67%; background: #7fd0ff;"></div>
+              </div>
+            </div>
+          </div>
+          <div class="mock-banner success" style="font-size: 9pt;">
+            <span>✨</span>
+            <div style="flex: 1;">
+              <strong>업데이트 준비 완료 · v1.7.x</strong><br>
+              <span style="font-size: 7.5pt;">지금 적용하시면 새 버전으로 즉시 재시작됩니다.</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 0.2rem;">
+              <div style="background: #1abc9c; color: #0f1a18; padding: 0.25rem 0.5rem; border-radius: 5px; font-size: 7.5pt; font-weight: 700;">지금 적용</div>
+              <div style="background: transparent; color: #d6fff0; padding: 0.25rem 0.5rem; font-size: 7.5pt;">나중에</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h3>각 단계 설명</h3>
     <ol class="steps">
-      <li>앱을 실행하면 3초 후 백그라운드에서 새 버전이 있는지 자동 확인합니다.</li>
-      <li>새 버전 발견 시 자동으로 차분 다운로드가 시작됩니다 (대부분 5~10MB).</li>
-      <li>다운로드가 완료되면 <strong>"업데이트 준비 완료"</strong> 다이얼로그가 표시됩니다.</li>
-      <li><strong>"지금 재시작"</strong>을 누르면 즉시 새 버전이 적용됩니다.</li>
-      <li><strong>"나중에"</strong>를 선택하면 앱을 다음번에 종료할 때 자동으로 적용됩니다.</li>
+      <li>앱 실행 → 3초 후 백그라운드에서 새 버전 자동 확인.</li>
+      <li>새 버전 발견 시 자동 다운로드 시작 (보통 5~10MB 차분 업데이트).</li>
+      <li>다운로드 완료 후 청록색 "준비 완료" 배너 표시.</li>
+      <li><strong>"지금 적용"</strong> 클릭 → 즉시 앱 재시작, 새 버전 적용.</li>
+      <li><strong>"나중에"</strong> 선택 → 다음 종료 시 자동으로 적용.</li>
     </ol>
 
     <div class="tip">
       <strong>설정값은 그대로 유지됩니다</strong><br>
-      업데이트가 적용되어도 이름, 저장된 미팅 목록, 오디오 장치 선택 등의 설정은 모두 유지됩니다.
+      업데이트가 적용되어도 이름, 저장된 회의, 최근 회의, 오디오 장치 선택은 모두 유지됩니다.
     </div>
 
     <h2>현재 버전 확인</h2>
-    <p>화면 좌측 하단에 청록색으로 현재 버전이 표시됩니다.<br>예: <span class="kbd">v1.3.0 · 개발자 서정천</span></p>
+    <p>좌측 하단의 실버 배지에 현재 버전이 표시됩니다.</p>
+    <p>예: <span class="mock-version-badge" style="font-size: 8pt;">v1.7.x · 개발자 서정천</span></p>
+    <p>이 배지를 <strong>클릭</strong>하면 변경 이력 전체를 볼 수 있습니다.</p>
 
-    <h1 class="section-title" style="margin-top: 2.5rem;">9. 문제 해결</h1>
+    <div class="page-footer">
+      사내 미팅 프로그램 · <span class="brand">개발: 서정천</span> · 페이지 10
+    </div>
+  </section>
+
+  <!-- ============ 11. TROUBLESHOOTING ============ -->
+  <section class="page">
+    <h1 class="section-title">11. 문제 해결</h1>
 
     <h3>마이크를 찾을 수 없다고 나옵니다</h3>
     <p>가장 흔한 원인은 <strong>Windows 마이크 권한이 차단된 경우</strong>입니다.</p>
@@ -592,47 +884,64 @@
     <ul>
       <li>오디오 설정에서 올바른 스피커가 선택되어 있는지 확인합니다.</li>
       <li>Windows 시스템 볼륨이 음소거되어 있지 않은지 확인합니다.</li>
-      <li>상대방의 음소거 상태(빨간 🔇 아이콘)를 확인합니다.</li>
+      <li>상대방의 음소거 상태 (빨간 🔇 아이콘)를 확인합니다.</li>
     </ul>
 
     <h3>화면 공유가 시작되지 않습니다</h3>
     <p>Windows 화면 캡처 권한이 필요합니다. 화면 공유 클릭 시 Windows가 권한을 묻는 창을 띄우면 <strong>허용</strong>해 주세요.</p>
 
+    <h3>파일 전송이 멈춥니다</h3>
+    <ul>
+      <li>파일 크기가 200 MB를 넘는지 확인 (최대 200 MB).</li>
+      <li>받는 사람이 회의에서 나갔는지 확인.</li>
+      <li>네트워크 상태 불안정 시 전송이 느려질 수 있습니다.</li>
+    </ul>
+
+    <h3>회의 연결이 자주 끊깁니다</h3>
+    <ul>
+      <li>유선 인터넷이 무선보다 안정적입니다.</li>
+      <li>VPN이나 회사 방화벽 정책이 WebRTC 통신을 막을 수 있습니다.</li>
+      <li>참가자가 많을수록 (6명 이상) 본인의 인터넷 대역폭이 더 필요합니다.</li>
+    </ul>
+
     <div class="page-footer">
-      사내 미팅 프로그램 사내 미팅 프로그램 · <span class="brand">개발: 서정천</span>
+      사내 미팅 프로그램 · <span class="brand">개발: 서정천</span> · 페이지 11
     </div>
   </section>
 
-  <!-- ============ 10. FAQ ============ -->
+  <!-- ============ 12. FAQ ============ -->
   <section class="page">
-    <h1 class="section-title">10. 자주 묻는 질문 (FAQ)</h1>
+    <h1 class="section-title">12. 자주 묻는 질문 (FAQ)</h1>
 
     <p class="faq-q">회의는 동시에 몇 명까지 참여할 수 있나요?</p>
-    <p class="faq-a">기술적으로는 약 6~8명까지 무리 없이 동작합니다. P2P 방식이라 참가자가 늘어날수록 각자의 네트워크 대역폭이 더 필요해집니다. 일반적인 사내 회의 규모에서는 충분합니다.</p>
+    <p class="faq-a">기술적으로는 약 6~8명까지 무리 없이 동작합니다. P2P 방식이라 참가자가 늘어날수록 각자의 네트워크 대역폭이 더 필요해집니다.</p>
 
-    <p class="faq-q">회의 내용이 녹음되거나 저장되나요?</p>
-    <p class="faq-a">아닙니다. 본 프로그램은 녹음/녹화 기능을 제공하지 않습니다. 모든 통신은 P2P 방식으로 참가자 PC 사이에서만 오갑니다.</p>
+    <p class="faq-q">회의 내용이 녹음되거나 서버에 저장되나요?</p>
+    <p class="faq-a">아닙니다. 모든 통신은 P2P 방식으로 참가자 PC 사이에서만 오가며, 시그널링 서버는 단순히 연결을 중개할 뿐 음성/영상/채팅 내용을 받지 않습니다. 파일 전송도 마찬가지입니다.</p>
 
     <p class="faq-q">회사 외부에서도 사용할 수 있나요?</p>
     <p class="faq-a">네, 인터넷이 연결된 곳이면 어디서나 사용 가능합니다. 회의 코드만 알고 있으면 됩니다.</p>
 
-    <p class="faq-q">회사 외 사람을 초대해도 되나요?</p>
-    <p class="faq-a">기술적으로 가능하나, 회사 정책에 따라 다릅니다. 사내용 프로그램이므로 회사 정책을 확인해 주세요.</p>
-
     <p class="faq-q">회의 코드가 노출되면 누구나 입장할 수 있나요?</p>
     <p class="faq-a">네, 코드를 아는 사람은 누구나 입장 가능합니다. 민감한 회의는 외부에 노출되지 않도록 주의해 주세요. 회의별로 코드를 다르게 정하는 것도 좋은 방법입니다.</p>
 
-    <p class="faq-q">화상(비디오) 기능은 없나요?</p>
+    <p class="faq-q">화상(비디오/카메라) 기능은 없나요?</p>
     <p class="faq-a">현재는 음성과 화면 공유만 지원합니다. 향후 업데이트로 카메라 기능이 추가될 수 있습니다.</p>
+
+    <p class="faq-q">파일을 보낼 때 받는 사람이 회의에 없으면 어떻게 되나요?</p>
+    <p class="faq-a">P2P 방식이므로 회의에 들어와 있는 참가자에게만 전송됩니다. 나중에 들어온 사람은 받지 못합니다. 중요한 파일은 회의 시작 후에 보내거나 미리 메신저로 전달해 주세요.</p>
 
     <p class="faq-q">앱이 갑자기 종료되거나 회의가 끊깁니다</p>
     <p class="faq-a">인터넷 연결을 먼저 확인해 주세요. 그래도 같은 문제가 반복되면 앱을 완전히 종료한 후 다시 실행해 보세요. 그래도 해결되지 않으면 개발자에게 문의해 주세요.</p>
 
     <p class="faq-q">설치한 PC를 바꾸려면 어떻게 하나요?</p>
-    <p class="faq-a">기존 PC에서 제어판을 통해 프로그램을 제거한 후, 새 PC에 인스톨러를 실행하면 됩니다. 단, 저장된 미팅 목록과 이름은 이전되지 않으므로 새로 설정해야 합니다.</p>
+    <p class="faq-a">기존 PC에서 제어판을 통해 프로그램을 제거한 후, 새 PC에 인스톨러를 실행하면 됩니다. 단, 저장된 회의 목록과 이름은 이전되지 않으므로 새로 설정해야 합니다.</p>
 
     <p class="faq-q">자동 업데이트가 안 되는 것 같아요</p>
-    <p class="faq-a">앱 실행 후 3초 뒤에 체크가 시작됩니다. 인터넷이 연결되어 있는지 확인하시고, 그래도 안 되면 좌측 하단의 현재 버전을 확인해 주세요. 만약 최신 버전이 v1.3.0인데 그보다 낮다면 한 번 더 재시작해 보세요.</p>
+    <p class="faq-a">앱 실행 후 3초 뒤에 체크가 시작됩니다. 인터넷이 연결되어 있는지 확인하시고, 좌측 하단의 현재 버전을 확인해 주세요. 만약 최신 버전이 더 높다면 한 번 더 재시작해 보세요.</p>
+
+    <p class="faq-q">최근 회의 목록을 지우고 싶어요</p>
+    <p class="faq-a">각 카드 우측의 ✕ 버튼을 누르면 해당 회의만 목록에서 제거됩니다. (실제 회의방은 그대로 유지)</p>
 
     <div class="warn" style="margin-top: 2rem;">
       <strong>문제 해결이 되지 않을 때</strong><br>
@@ -646,7 +955,7 @@
     </div>
 
     <div class="page-footer">
-      사내 미팅 프로그램 사내 미팅 프로그램 · <span class="brand">개발: 서정천</span>
+      사내 미팅 프로그램 · <span class="brand">개발: 서정천</span> · 페이지 12
     </div>
   </section>
 
