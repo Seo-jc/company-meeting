@@ -13,6 +13,11 @@ export type ReleaseNote = {
  */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '1.8.5',
+    date: '2026-06-03',
+    highlight: '일부 디자인 변경',
+  },
+  {
     version: '1.8.4',
     date: '2026-06-03',
     highlight: '저장된 회의 추가 시 이름 변경 가능',
