@@ -13,6 +13,15 @@ export type ReleaseNote = {
  */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '1.8.4',
+    date: '2026-06-03',
+    highlight: '저장된 회의 추가 시 이름 변경 가능',
+    added: [
+      '최근 회의의 📌 버튼 클릭 시 이름 입력 다이얼로그 표시',
+      '예: "A1234" 코드를 "마케팅 정기 회의" 같은 의미있는 이름으로 저장 가능',
+    ],
+  },
+  {
     version: '1.8.2',
     date: '2026-06-03',
     highlight: '일부 디자인 변경',

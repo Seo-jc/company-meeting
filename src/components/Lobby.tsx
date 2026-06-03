@@ -5,6 +5,7 @@ import Manual from './Manual';
 import AdminLogin from './AdminLogin';
 import BugViewerModal from './BugViewerModal';
 import FeedbackModal from './FeedbackModal';
+import PromoteRenameDialog from './PromoteRenameDialog';
 import {
   fetchBugs,
   getStoredPassword,
@@ -142,6 +143,7 @@ export default function Lobby({ onJoin }: Props) {
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [showBugViewer, setShowBugViewer] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [renamingMeeting, setRenamingMeeting] = useState<RecentMeeting | null>(null);
   const [bugUnread, setBugUnread] = useState(0);
   const cancelledRef = useRef(false);
 
@@ -310,14 +312,20 @@ export default function Lobby({ onJoin }: Props) {
       handleDeleteRecent(r.id);
       return;
     }
-    const name = r.name || r.code;
+    // Open rename dialog so the user can give it a meaningful name.
+    setRenamingMeeting(r);
+  };
+
+  const handleConfirmPromote = (name: string) => {
+    if (!renamingMeeting) return;
     const newSaved = [
       ...savedMeetings,
-      { id: crypto.randomUUID(), name, code: r.code },
+      { id: crypto.randomUUID(), name, code: renamingMeeting.code },
     ];
     persistSaved(newSaved);
     setSavedMeetings(newSaved);
-    handleDeleteRecent(r.id);
+    handleDeleteRecent(renamingMeeting.id);
+    setRenamingMeeting(null);
   };
 
   const handleAddSaved = () => {
@@ -635,6 +643,14 @@ export default function Lobby({ onJoin }: Props) {
         <FeedbackModal
           defaultName={displayName}
           onClose={() => setShowFeedback(false)}
+        />
+      )}
+      {renamingMeeting && (
+        <PromoteRenameDialog
+          defaultName={renamingMeeting.name || renamingMeeting.code}
+          code={renamingMeeting.code}
+          onCancel={() => setRenamingMeeting(null)}
+          onSave={handleConfirmPromote}
         />
       )}
       {showAdminLogin && (

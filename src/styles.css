@@ -1437,6 +1437,73 @@ input {
   background: rgba(127, 208, 255, 0.05);
 }
 
+/* ---------- Promote Rename Dialog ---------- */
+.promote-form {
+  padding: 1.2rem 1.4rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.promote-code-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0.75rem;
+  background: #14161b;
+  border: 1px solid #2a2e36;
+  border-radius: 6px;
+}
+
+.promote-code-label {
+  font-size: 0.75rem;
+  color: #9aa0a8;
+  font-weight: 500;
+}
+
+.promote-code-value {
+  font-family: 'Consolas', 'D2Coding', monospace;
+  font-weight: 700;
+  color: #1abc9c;
+  letter-spacing: 0.05em;
+}
+
+.promote-name-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #cdd1d8;
+  margin-top: 0.3rem;
+}
+
+.promote-form input {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #353a44;
+  border-radius: 6px;
+  background: #14161b;
+  color: #e8e8ea;
+  font-size: 0.95rem;
+  font-family: inherit;
+}
+
+.promote-form input:focus {
+  outline: none;
+  border-color: #1abc9c;
+}
+
+.promote-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.6rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid #2a2e36;
+}
+
+.promote-actions .btn {
+  min-width: 100px;
+}
+
 /* ---------- Feedback Modal ---------- */
 .feedback-form {
   padding: 1.2rem 1.4rem 1.4rem;
