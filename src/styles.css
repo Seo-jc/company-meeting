@@ -1520,6 +1520,22 @@ input {
   outline: 2px solid #4f7df3;
 }
 
+.tile-speaking {
+  outline: 2px solid #1abc9c;
+  box-shadow: 0 0 0 4px rgba(26, 188, 156, 0.18);
+  animation: tile-speaking-pulse 1.4s ease-in-out infinite;
+}
+
+.tile-speaking.tile-focused {
+  outline-color: #1abc9c;
+  box-shadow: 0 0 0 4px rgba(26, 188, 156, 0.28);
+}
+
+@keyframes tile-speaking-pulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(26, 188, 156, 0.18); }
+  50% { box-shadow: 0 0 0 6px rgba(26, 188, 156, 0.32); }
+}
+
 /* ---------- Chat ---------- */
 .meeting {
   display: flex;
@@ -2079,6 +2095,127 @@ input {
 .chat-form button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.chat-attach {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #353a44;
+  background: #1d2026;
+  color: #cdd1d8;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.12s ease;
+}
+
+.chat-attach:hover {
+  border-color: #1abc9c;
+  color: #1abc9c;
+  background: rgba(26, 188, 156, 0.06);
+}
+
+/* ---------- File messages ---------- */
+.chat-file {
+  background: #2a2e36;
+  padding: 0.6rem 0.7rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: 280px;
+  border: 1px solid #353a44;
+}
+
+.chat-msg-mine .chat-file {
+  background: #1f3a4d;
+  border-color: #2a4a5e;
+}
+
+.chat-file-failed {
+  border-color: #6b2929 !important;
+  opacity: 0.85;
+}
+
+.chat-file-icon {
+  font-size: 1.4rem;
+  flex-shrink: 0;
+}
+
+.chat-file-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-file-name {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #e8e8ea;
+}
+
+.chat-file-meta {
+  font-size: 0.7rem;
+  color: #9aa0a8;
+  margin-top: 0.1rem;
+}
+
+.chat-file-progress {
+  height: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  margin-top: 0.35rem;
+  overflow: hidden;
+}
+
+.chat-file-progress-fill {
+  height: 100%;
+  background: #1abc9c;
+  border-radius: 2px;
+  transition: width 0.18s ease;
+}
+
+.chat-file-save {
+  flex-shrink: 0;
+  padding: 0.3rem 0.6rem;
+  background: #1abc9c;
+  color: #0f1a18;
+  font-weight: 700;
+  font-size: 0.72rem;
+  border-radius: 5px;
+  text-decoration: none;
+  transition: background 0.12s ease;
+}
+
+.chat-file-save:hover {
+  background: #16a085;
+}
+
+/* Drag-drop overlay */
+.chat-tab {
+  position: relative;
+}
+
+.chat-drop-overlay {
+  position: absolute;
+  inset: 8px;
+  border: 2px dashed #1abc9c;
+  background: rgba(26, 188, 156, 0.12);
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: #1abc9c;
+  font-weight: 700;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.chat-tab-drag .chat-list,
+.chat-tab-drag .chat-form {
+  opacity: 0.5;
 }
 
 .btn-circle {

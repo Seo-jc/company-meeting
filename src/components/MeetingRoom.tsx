@@ -13,6 +13,7 @@ import ChatPanel from './ChatPanel';
 import ChatTab from './ChatTab';
 import Logo from './Logo';
 import AudioSettingsPopover from './AudioSettingsPopover';
+import { useSpeakingDetection } from '../lib/speakingDetection';
 
 type Props = {
   roomCode: string;
@@ -151,6 +152,55 @@ export default function MeetingRoom({
             },
             onChat: (msg) => {
               setMessages((prev) => [...prev, msg]);
+            },
+            onFileStart: ({ id, from, fromName, name, size, mime }) => {
+              setMessages((prev) => [
+                ...prev,
+                {
+                  from,
+                  fromName,
+                  ts: Date.now(),
+                  file: {
+                    id,
+                    name,
+                    size,
+                    mime,
+                    progress: 0,
+                    status: 'receiving',
+                  },
+                },
+              ]);
+            },
+            onFileProgress: ({ id, received, size }) => {
+              const pct = Math.min(100, Math.round((received / size) * 100));
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.file && m.file.id === id
+                    ? { ...m, file: { ...m.file, progress: pct } }
+                    : m
+                )
+              );
+            },
+            onFileComplete: ({ id, blobUrl }) => {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.file && m.file.id === id
+                    ? {
+                        ...m,
+                        file: { ...m.file, status: 'done', progress: 100, blobUrl },
+                      }
+                    : m
+                )
+              );
+            },
+            onFileFailed: ({ id }) => {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.file && m.file.id === id
+                    ? { ...m, file: { ...m.file, status: 'failed' } }
+                    : m
+                )
+              );
             },
           }
         );
@@ -333,6 +383,60 @@ export default function MeetingRoom({
     meshRef.current.sendChat(text, displayName);
   };
 
+  const handleSendFile = async (file: File) => {
+    if (!meshRef.current || !myId) return;
+    const fileId = crypto.randomUUID();
+    const mime = file.type || 'application/octet-stream';
+    const blobUrl = URL.createObjectURL(file);
+
+    // Optimistically show in local chat as "sending"
+    const localMsg: ChatMessage = {
+      from: myId,
+      fromName: displayName,
+      ts: Date.now(),
+      file: {
+        id: fileId,
+        name: file.name,
+        size: file.size,
+        mime,
+        progress: 0,
+        status: 'sending',
+        blobUrl,
+      },
+    };
+    setMessages((prev) => [...prev, localMsg]);
+
+    try {
+      await meshRef.current.sendFile(file, fileId, (sent, total) => {
+        const pct = Math.min(100, Math.round((sent / total) * 100));
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.file && m.file.id === fileId
+              ? { ...m, file: { ...m.file, progress: pct } }
+              : m
+          )
+        );
+      });
+      // Mark sender's message as done; keep blobUrl so they can re-download
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.file && m.file.id === fileId
+            ? { ...m, file: { ...m.file, status: 'done', progress: 100 } }
+            : m
+        )
+      );
+    } catch (err) {
+      console.error('[file] send failed', err);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.file && m.file.id === fileId
+            ? { ...m, file: { ...m.file, status: 'failed' } }
+            : m
+        )
+      );
+    }
+  };
+
   const copyCode = async () => {
     let success = false;
     try {
@@ -426,6 +530,22 @@ export default function MeetingRoom({
     );
   }
 
+  // Build list of streams to monitor for speaking detection.
+  const speakingStreams = (() => {
+    const list: Array<{ id: string; stream: MediaStream }> = [];
+    if (localStreamRef.current && !listenOnly) {
+      list.push({ id: SELF_ID, stream: localStreamRef.current });
+    }
+    for (const p of peers) {
+      list.push({ id: p.peerId, stream: p.stream });
+    }
+    return list;
+  })();
+  const speakers = useSpeakingDetection(speakingStreams);
+
+  // Self is considered "speaking" only when not muted and not listen-only.
+  const selfSpeaking = !muted && !listenOnly && speakers.has(SELF_ID);
+
   const tiles: Array<{ id: string; node: ReactNode }> = [];
   tiles.push({
     id: SELF_ID,
@@ -434,6 +554,7 @@ export default function MeetingRoom({
         name={displayName}
         muted={muted}
         listenOnly={listenOnly}
+        speaking={selfSpeaking}
         focused={expandedId === SELF_ID}
         onDoubleClick={() => toggleExpand(SELF_ID)}
       />
@@ -452,11 +573,13 @@ export default function MeetingRoom({
     });
   }
   for (const peer of peers) {
+    const isSpeaking = !peer.muted && speakers.has(peer.peerId);
     tiles.push({
       id: peer.peerId,
       node: (
         <PeerTile
           peer={peer}
+          speaking={isSpeaking}
           focused={expandedId === peer.peerId}
           onDoubleClick={() => toggleExpand(peer.peerId)}
         />
@@ -615,7 +738,12 @@ export default function MeetingRoom({
 
       {chatOpen && (
         <ChatPanel onClose={() => setChatOpen(false)}>
-          <ChatTab messages={messages} myId={myId} onSend={sendChat} />
+          <ChatTab
+            messages={messages}
+            myId={myId}
+            onSend={sendChat}
+            onSendFile={handleSendFile}
+          />
         </ChatPanel>
       )}
 
@@ -664,18 +792,20 @@ function SelfTile({
   name,
   muted,
   listenOnly,
+  speaking,
   focused,
   onDoubleClick,
 }: {
   name: string;
   muted: boolean;
   listenOnly: boolean;
+  speaking: boolean;
   focused?: boolean;
   onDoubleClick?: () => void;
 }) {
   return (
     <div
-      className={`tile tile-self ${focused ? 'tile-focused' : ''}`}
+      className={`tile tile-self ${focused ? 'tile-focused' : ''} ${speaking ? 'tile-speaking' : ''}`}
       onDoubleClick={onDoubleClick}
       title="더블클릭으로 확대"
     >
@@ -721,10 +851,12 @@ function SelfScreenTile({
 
 function PeerTile({
   peer,
+  speaking,
   focused,
   onDoubleClick,
 }: {
   peer: RemotePeer;
+  speaking: boolean;
   focused?: boolean;
   onDoubleClick?: () => void;
 }) {
@@ -755,7 +887,7 @@ function PeerTile({
 
   return (
     <div
-      className={`tile ${focused ? 'tile-focused' : ''}`}
+      className={`tile ${focused ? 'tile-focused' : ''} ${speaking ? 'tile-speaking' : ''}`}
       onDoubleClick={onDoubleClick}
       title="더블클릭으로 확대"
     >

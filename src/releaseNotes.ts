@@ -13,6 +13,16 @@ export type ReleaseNote = {
  */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '1.7.0',
+    date: '2026-06-03',
+    highlight: '발언자 강조 + 파일 공유',
+    added: [
+      '현재 말하고 있는 참가자 타일에 청록색 펄스 테두리 표시',
+      '채팅 패널에서 파일 첨부 (📎 버튼) 또는 드래그앤드롭으로 P2P 전송 (최대 200 MB)',
+      '파일 전송/수신 진행률 실시간 표시 + 완료 시 "저장" 버튼',
+    ],
+  },
+  {
     version: '1.6.1',
     date: '2026-06-02',
     highlight: '디스크 공간 절약',

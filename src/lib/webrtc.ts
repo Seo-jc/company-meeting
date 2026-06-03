@@ -15,8 +15,30 @@ export type RemotePeer = {
 export type ChatMessage = {
   from: string;
   fromName: string;
-  text: string;
   ts: number;
+  text?: string;
+  file?: ChatFile;
+};
+
+export type ChatFile = {
+  id: string;
+  name: string;
+  size: number;
+  mime: string;
+  /** 0~100. Sender knows after their own send loop; receiver updates as bytes arrive. */
+  progress: number;
+  status: 'sending' | 'receiving' | 'done' | 'failed';
+  /** Object URL valid for the lifetime of this session (revoked on leave). */
+  blobUrl?: string;
+};
+
+export type FileStartInfo = {
+  id: string;
+  from: string;
+  fromName: string;
+  name: string;
+  size: number;
+  mime: string;
 };
 
 type Callbacks = {
@@ -24,6 +46,10 @@ type Callbacks = {
   onPeerLeft: (peerId: string) => void;
   onSync: (validPeerIds: string[]) => void;
   onChat: (msg: ChatMessage) => void;
+  onFileStart: (info: FileStartInfo) => void;
+  onFileProgress: (info: { id: string; received: number; size: number }) => void;
+  onFileComplete: (info: { id: string; blobUrl: string }) => void;
+  onFileFailed: (info: { id: string; reason: string }) => void;
 };
 
 type PeerState = {
@@ -33,6 +59,20 @@ type PeerState = {
   isSettingRemoteAnswerPending: boolean;
 };
 
+type IncomingFile = {
+  id: string;
+  peerId: string;
+  name: string;
+  size: number;
+  mime: string;
+  chunks: ArrayBuffer[];
+  received: number;
+};
+
+const FILE_CHUNK_SIZE = 16 * 1024;          // 16 KB per chunk
+const FILE_BACKPRESSURE_LIMIT = 1024 * 1024; // pause sending when buffer > 1 MB
+const FILE_MAX_SIZE = 200 * 1024 * 1024;    // 200 MB cap
+
 export class MeshConnection {
   private states = new Map<string, PeerState>();
   private remoteStreams = new Map<string, MediaStream>();
@@ -40,6 +80,9 @@ export class MeshConnection {
   private screenSenders = new Map<string, RTCRtpSender>();
   private muteStates = new Map<string, boolean>();
   private currentMuted = false;
+  private dataChannels = new Map<string, RTCDataChannel>();
+  private incomingFiles = new Map<string, IncomingFile>();
+  private peerActiveFile = new Map<string, string>(); // peerId -> file id currently being received
 
   constructor(
     private localStream: MediaStream,
@@ -268,6 +311,20 @@ export class MeshConnection {
     this.states.set(peerId, state);
     console.log('[webrtc] created pc for', peerId, 'polite:', polite);
 
+    // Only the impolite peer creates the data channel; polite peer receives it
+    // via ondatachannel. This avoids both sides creating duplicates.
+    if (!polite) {
+      try {
+        const dc = pc.createDataChannel('files', { ordered: true });
+        this.setupDataChannel(dc, peerId);
+      } catch (err) {
+        console.warn('[webrtc] createDataChannel failed', peerId, err);
+      }
+    }
+    pc.ondatachannel = (e) => {
+      this.setupDataChannel(e.channel, peerId);
+    };
+
     pc.onicecandidate = (e) => {
       if (e.candidate) {
         this.signaling.send({
@@ -348,6 +405,157 @@ export class MeshConnection {
     return pc;
   }
 
+  private setupDataChannel(dc: RTCDataChannel, peerId: string) {
+    dc.binaryType = 'arraybuffer';
+    this.dataChannels.set(peerId, dc);
+
+    dc.onopen = () => {
+      console.log('[dc] open with', peerId);
+    };
+    dc.onclose = () => {
+      console.log('[dc] close with', peerId);
+      this.dataChannels.delete(peerId);
+      const activeFileId = this.peerActiveFile.get(peerId);
+      if (activeFileId) {
+        this.cb.onFileFailed({ id: activeFileId, reason: '연결이 종료되었습니다' });
+        this.incomingFiles.delete(activeFileId);
+        this.peerActiveFile.delete(peerId);
+      }
+    };
+    dc.onerror = (e) => {
+      console.warn('[dc] error', peerId, e);
+    };
+    dc.onmessage = (e) => {
+      this.handleDataMessage(peerId, e.data);
+    };
+  }
+
+  private handleDataMessage(peerId: string, data: ArrayBuffer | string) {
+    if (typeof data === 'string') {
+      let msg: { type?: string; id?: string; name?: string; size?: number; mime?: string };
+      try {
+        msg = JSON.parse(data);
+      } catch {
+        return;
+      }
+      if (
+        msg.type === 'file-meta' &&
+        msg.id &&
+        msg.name &&
+        typeof msg.size === 'number'
+      ) {
+        const fromName = this.displayNames.get(peerId) ?? '참가자';
+        const mime = msg.mime || 'application/octet-stream';
+        this.incomingFiles.set(msg.id, {
+          id: msg.id,
+          peerId,
+          name: msg.name,
+          size: msg.size,
+          mime,
+          chunks: [],
+          received: 0,
+        });
+        this.peerActiveFile.set(peerId, msg.id);
+        this.cb.onFileStart({
+          id: msg.id,
+          from: peerId,
+          fromName,
+          name: msg.name,
+          size: msg.size,
+          mime,
+        });
+      } else if (msg.type === 'file-end' && msg.id) {
+        const state = this.incomingFiles.get(msg.id);
+        if (state) {
+          try {
+            const blob = new Blob(state.chunks, { type: state.mime });
+            const url = URL.createObjectURL(blob);
+            this.cb.onFileComplete({ id: msg.id, blobUrl: url });
+          } catch (err) {
+            console.error('[dc] blob assembly failed', err);
+            this.cb.onFileFailed({ id: msg.id, reason: '파일 조립 실패' });
+          }
+          this.incomingFiles.delete(msg.id);
+          if (this.peerActiveFile.get(peerId) === msg.id) {
+            this.peerActiveFile.delete(peerId);
+          }
+        }
+      }
+    } else if (data instanceof ArrayBuffer) {
+      const fileId = this.peerActiveFile.get(peerId);
+      if (!fileId) return;
+      const state = this.incomingFiles.get(fileId);
+      if (!state) return;
+      state.chunks.push(data);
+      state.received += data.byteLength;
+      this.cb.onFileProgress({
+        id: fileId,
+        received: state.received,
+        size: state.size,
+      });
+    }
+  }
+
+  async sendFile(
+    file: File,
+    id: string,
+    onProgress?: (sent: number, total: number) => void
+  ): Promise<void> {
+    if (file.size > FILE_MAX_SIZE) {
+      throw new Error(`파일 크기가 너무 큽니다 (최대 ${FILE_MAX_SIZE / 1024 / 1024} MB)`);
+    }
+    const channels = Array.from(this.dataChannels.values()).filter(
+      (dc) => dc.readyState === 'open'
+    );
+    if (channels.length === 0) {
+      throw new Error('연결된 참가자가 없습니다');
+    }
+
+    const meta = JSON.stringify({
+      type: 'file-meta',
+      id,
+      name: file.name,
+      size: file.size,
+      mime: file.type || 'application/octet-stream',
+    });
+    for (const dc of channels) {
+      dc.send(meta);
+    }
+
+    let offset = 0;
+    while (offset < file.size) {
+      const end = Math.min(offset + FILE_CHUNK_SIZE, file.size);
+      const buf = await file.slice(offset, end).arrayBuffer();
+
+      for (const dc of channels) {
+        if (dc.readyState !== 'open') continue;
+        // Wait for buffer to drain to avoid runaway memory.
+        while (dc.readyState === 'open' && dc.bufferedAmount > FILE_BACKPRESSURE_LIMIT) {
+          await new Promise<void>((r) => setTimeout(r, 30));
+        }
+        try {
+          dc.send(buf);
+        } catch (err) {
+          console.warn('[dc] send chunk failed', err);
+        }
+      }
+
+      offset = end;
+      onProgress?.(offset, file.size);
+    }
+
+    const endMsg = JSON.stringify({ type: 'file-end', id });
+    for (const dc of channels) {
+      if (dc.readyState === 'open') {
+        try {
+          dc.send(endMsg);
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }
+
   private closePeer(peerId: string) {
     const state = this.states.get(peerId);
     if (state) {
@@ -356,6 +564,12 @@ export class MeshConnection {
       this.remoteStreams.delete(peerId);
       this.screenSenders.delete(peerId);
       this.muteStates.delete(peerId);
+      this.dataChannels.delete(peerId);
+      const activeFileId = this.peerActiveFile.get(peerId);
+      if (activeFileId) {
+        this.incomingFiles.delete(activeFileId);
+        this.peerActiveFile.delete(peerId);
+      }
       this.cb.onPeerLeft(peerId);
     }
   }
@@ -402,5 +616,8 @@ export class MeshConnection {
     this.screenSenders.clear();
     this.displayNames.clear();
     this.muteStates.clear();
+    this.dataChannels.clear();
+    this.incomingFiles.clear();
+    this.peerActiveFile.clear();
   }
 }
