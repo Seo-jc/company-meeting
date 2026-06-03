@@ -1,6 +1,6 @@
 {
   "name": "company-meeting",
-  "version": "1.7.7",
+  "version": "1.7.8",
   "description": "사내 화상회의 데스크톱 앱",
   "main": "dist-electron/main.js",
   "scripts": {

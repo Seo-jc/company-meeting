@@ -164,7 +164,7 @@ function FileMessage({
       case 'done':
         return mine ? '전송 완료' : '받기 완료';
       case 'failed':
-        return '실패';
+        return file.failedReason ?? '실패';
     }
   })();
 

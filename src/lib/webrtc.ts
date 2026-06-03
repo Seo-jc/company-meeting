@@ -31,6 +31,8 @@ export type ChatFile = {
   status: 'sending' | 'receiving' | 'done' | 'failed';
   /** Object URL valid for the lifetime of this session (revoked on leave). */
   blobUrl?: string;
+  /** Human-readable reason populated when status === 'failed'. */
+  failedReason?: string;
 };
 
 export type FileStartInfo = {

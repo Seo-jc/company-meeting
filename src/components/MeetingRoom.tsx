@@ -425,6 +425,31 @@ export default function MeetingRoom({
 
   const handleSendFile = async (file: File) => {
     if (!meshRef.current || !myId) return;
+
+    // Pre-check: if there are no other participants, fail fast with a clear reason.
+    if (peers.length === 0) {
+      const reason = '받을 사람이 없습니다. 다른 참가자가 입장한 후 다시 시도해 주세요.';
+      const fileId = crypto.randomUUID();
+      setMessages((prev) => [
+        ...prev,
+        {
+          from: myId,
+          fromName: displayName,
+          ts: Date.now(),
+          file: {
+            id: fileId,
+            name: file.name,
+            size: file.size,
+            mime: file.type || 'application/octet-stream',
+            progress: 0,
+            status: 'failed',
+            failedReason: reason,
+          },
+        },
+      ]);
+      return;
+    }
+
     const fileId = crypto.randomUUID();
     const mime = file.type || 'application/octet-stream';
     const blobUrl = URL.createObjectURL(file);
@@ -467,10 +492,11 @@ export default function MeetingRoom({
       );
     } catch (err) {
       console.error('[file] send failed', err);
+      const reason = err instanceof Error ? err.message : '알 수 없는 오류';
       setMessages((prev) =>
         prev.map((m) =>
           m.file && m.file.id === fileId
-            ? { ...m, file: { ...m.file, status: 'failed' } }
+            ? { ...m, file: { ...m.file, status: 'failed', failedReason: reason } }
             : m
         )
       );
