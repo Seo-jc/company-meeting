@@ -13,6 +13,14 @@ export type ReleaseNote = {
  */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '1.7.7',
+    date: '2026-06-03',
+    highlight: '회의 입장 시 검은 화면 긴급 수정',
+    fixed: [
+      'v1.7.6 줌 기능 추가 시 React Hook 순서 위반으로 회의 화면이 검게 나오던 문제',
+    ],
+  },
+  {
     version: '1.7.6',
     date: '2026-06-03',
     highlight: '회의 화면 개선 + 설치 마법사 없는 무중단 업데이트',

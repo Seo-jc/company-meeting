@@ -254,6 +254,19 @@ export default function MeetingRoom({
   })();
   const speakers = useSpeakingDetection(speakingStreams);
 
+  // Zoom state for focused (expanded) tile — controlled by mouse wheel / buttons / drag.
+  // MUST be declared before any conditional early returns to keep React hook order stable.
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [dragStart, setDragStart] = useState<
+    { x: number; y: number; bx: number; by: number } | null
+  >(null);
+  useEffect(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+    setDragStart(null);
+  }, [expandedId]);
+
   const handleRetry = () => {
     setListenOnly(false);
     setStatus('connecting');
@@ -559,19 +572,6 @@ export default function MeetingRoom({
 
   // Self is considered "speaking" only when not muted and not listen-only.
   const selfSpeaking = !muted && !listenOnly && speakers.has(SELF_ID);
-
-  // Zoom state for focused (expanded) tile — controlled by mouse wheel / buttons / drag.
-  // Reset when focus changes.
-  const [zoom, setZoom] = useState(1);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
-  const [dragStart, setDragStart] = useState<
-    { x: number; y: number; bx: number; by: number } | null
-  >(null);
-  useEffect(() => {
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
-    setDragStart(null);
-  }, [expandedId]);
 
   const tiles: Array<{ id: string; node: ReactNode }> = [];
   tiles.push({
