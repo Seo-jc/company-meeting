@@ -1,4 +1,5 @@
 import { SignalingClient } from './signaling';
+import { sendBugReport } from './bugReporter';
 
 const ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
@@ -370,7 +371,11 @@ export class MeshConnection {
 
     pc.onconnectionstatechange = () => {
       console.log('[webrtc] connection state', peerId, pc.connectionState);
-      if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+      if (pc.connectionState === 'failed') {
+        // Gather diagnostic info before closing the peer.
+        void this.reportConnectionFailure(peerId, pc);
+        this.closePeer(peerId);
+      } else if (pc.connectionState === 'closed') {
         this.closePeer(peerId);
       }
     };
@@ -553,6 +558,46 @@ export class MeshConnection {
           // ignore
         }
       }
+    }
+  }
+
+  private async reportConnectionFailure(
+    peerId: string,
+    pc: RTCPeerConnection
+  ): Promise<void> {
+    try {
+      const candidates: string[] = [];
+      const stats = await pc.getStats();
+      stats.forEach((report) => {
+        if (
+          report.type === 'local-candidate' ||
+          report.type === 'remote-candidate'
+        ) {
+          const r = report as RTCIceCandidatePairStats & {
+            candidateType?: string;
+          };
+          if (r.candidateType) candidates.push(r.candidateType);
+        }
+      });
+      const uniqueCandidates = Array.from(new Set(candidates));
+      const hasRelay = uniqueCandidates.includes('relay');
+      await sendBugReport({
+        type: 'webrtc-failed',
+        severity: 'critical',
+        message: `WebRTC peer connection failed`,
+        details: {
+          peerIdHash: peerId.slice(0, 8),
+          peerName: this.displayNames.get(peerId) ?? '참가자',
+          iceState: pc.iceConnectionState,
+          iceGatheringState: pc.iceGatheringState,
+          signalingState: pc.signalingState,
+          candidateTypes: uniqueCandidates,
+          relayAvailable: hasRelay,
+          totalPeers: this.states.size,
+        },
+      });
+    } catch (err) {
+      console.warn('[webrtc] failure report failed', err);
     }
   }
 

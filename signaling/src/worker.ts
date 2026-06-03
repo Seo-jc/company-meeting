@@ -1,6 +1,8 @@
 export interface Env {
   ROOMS: DurableObjectNamespace;
+  BUG_REPORTS: DurableObjectNamespace;
   GEMINI_API_KEY?: string;
+  ADMIN_PASSWORD?: string;
 }
 
 const CORS_HEADERS = {
@@ -154,6 +156,103 @@ export default {
     if (url.pathname === '/summarize' && request.method === 'POST') {
       return handleSummarize(request, env);
     }
+
+    // ============== Bug reports API ==============
+    if (url.pathname === '/api/report' && request.method === 'POST') {
+      const id = env.BUG_REPORTS.idFromName('global');
+      const obj = env.BUG_REPORTS.get(id);
+      const body = await request.text();
+      const resp = await obj.fetch(
+        new Request('https://internal/add', { method: 'POST', body })
+      );
+      const text = await resp.text();
+      return new Response(text, {
+        status: resp.status,
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+      });
+    }
+
+    if (url.pathname === '/api/bugs' && request.method === 'POST') {
+      let payload: { password?: string; limit?: number; offset?: number } = {};
+      try {
+        payload = await request.json();
+      } catch {
+        // ignore
+      }
+      const admin = (env.ADMIN_PASSWORD ?? '').trim();
+      if (!admin || payload.password !== admin) {
+        return new Response(JSON.stringify({ error: 'unauthorized' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+        });
+      }
+      const id = env.BUG_REPORTS.idFromName('global');
+      const obj = env.BUG_REPORTS.get(id);
+      const qs = new URLSearchParams({
+        limit: String(payload.limit ?? 50),
+        offset: String(payload.offset ?? 0),
+      });
+      const resp = await obj.fetch(new Request(`https://internal/list?${qs}`));
+      const text = await resp.text();
+      return new Response(text, {
+        status: resp.status,
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+      });
+    }
+
+    if (url.pathname.startsWith('/api/bugs/') && request.method === 'POST') {
+      let payload: { password?: string; action?: 'read' | 'delete' } = {};
+      try {
+        payload = await request.json();
+      } catch {
+        // ignore
+      }
+      const admin = (env.ADMIN_PASSWORD ?? '').trim();
+      if (!admin || payload.password !== admin) {
+        return new Response(JSON.stringify({ error: 'unauthorized' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+        });
+      }
+      const reportId = url.pathname.split('/')[3];
+      const id = env.BUG_REPORTS.idFromName('global');
+      const obj = env.BUG_REPORTS.get(id);
+      const action = payload.action ?? 'read';
+      const resp = await obj.fetch(
+        new Request(`https://internal/${action}/${reportId}`, { method: 'POST' })
+      );
+      const text = await resp.text();
+      return new Response(text, {
+        status: resp.status,
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+      });
+    }
+
+    if (url.pathname === '/api/auth' && request.method === 'POST') {
+      let payload: { password?: string } = {};
+      try {
+        payload = await request.json();
+      } catch {
+        // ignore
+      }
+      const admin = (env.ADMIN_PASSWORD ?? '').trim();
+      if (!admin) {
+        return new Response(JSON.stringify({ error: 'admin not configured' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+        });
+      }
+      if (payload.password !== admin) {
+        return new Response(JSON.stringify({ error: 'unauthorized' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+        });
+      }
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+      });
+    }
+    // ============== End bug reports API ==============
 
     const debugMatch = url.pathname.match(/^\/room\/([A-Z0-9]{4,10})\/debug$/);
     if (debugMatch) {
@@ -365,5 +464,115 @@ export class Room {
     const att = this.getAttachment(ws);
     console.log('[Room] webSocketError', { peerId: att?.peerId, error: String(error) });
     await this.webSocketClose(ws, 1006, 'error', false);
+  }
+}
+
+// ============== Bug Reports Durable Object ==============
+const MAX_REPORTS = 500; // trim oldest beyond this
+
+export class BugReportsDO {
+  private state: DurableObjectState;
+
+  constructor(state: DurableObjectState) {
+    this.state = state;
+  }
+
+  async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    const path = url.pathname;
+
+    if (path === '/add' && request.method === 'POST') {
+      let report: Record<string, unknown> = {};
+      try {
+        report = await request.json();
+      } catch {
+        return new Response(JSON.stringify({ error: 'invalid json' }), { status: 400 });
+      }
+      const id =
+        (typeof report.id === 'string' && report.id) || crypto.randomUUID();
+      const ts =
+        (typeof report.ts === 'number' && report.ts) || Date.now();
+      // Sort key: 15-digit zero-padded ts so list() with reverse returns newest first.
+      const key = `report:${ts.toString().padStart(15, '0')}:${id}`;
+      const stored = { ...report, id, ts, read: false };
+      await this.state.storage.put(key, stored);
+
+      // Trim oldest reports beyond MAX_REPORTS.
+      const all = await this.state.storage.list<unknown>({ prefix: 'report:' });
+      if (all.size > MAX_REPORTS) {
+        const keys = Array.from(all.keys()).sort();
+        const toDelete = keys.slice(0, all.size - MAX_REPORTS);
+        await this.state.storage.delete(toDelete);
+      }
+
+      return new Response(JSON.stringify({ id, ts }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (path === '/list' && request.method === 'GET') {
+      const limit = parseInt(url.searchParams.get('limit') ?? '50');
+      const offset = parseInt(url.searchParams.get('offset') ?? '0');
+      const items = await this.state.storage.list<Record<string, unknown>>({
+        prefix: 'report:',
+        reverse: true,
+        limit: limit + offset,
+      });
+      const reports: Array<Record<string, unknown>> = [];
+      let i = 0;
+      for (const [, value] of items) {
+        if (i++ < offset) continue;
+        reports.push(value);
+      }
+      // Count unread
+      const allItems = await this.state.storage.list<Record<string, unknown>>({
+        prefix: 'report:',
+      });
+      let unread = 0;
+      let total = 0;
+      for (const [, value] of allItems) {
+        total++;
+        if (!(value as { read?: boolean }).read) unread++;
+      }
+      return new Response(JSON.stringify({ reports, unread, total }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const readMatch = path.match(/^\/read\/(.+)$/);
+    if (readMatch && request.method === 'POST') {
+      const targetId = readMatch[1];
+      const items = await this.state.storage.list<Record<string, unknown>>({
+        prefix: 'report:',
+      });
+      for (const [key, value] of items) {
+        if ((value as { id?: string }).id === targetId) {
+          await this.state.storage.put(key, { ...value, read: true });
+          return new Response(JSON.stringify({ ok: true }), {
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+      }
+      return new Response(JSON.stringify({ error: 'not found' }), { status: 404 });
+    }
+
+    const deleteMatch = path.match(/^\/delete\/(.+)$/);
+    if (deleteMatch && request.method === 'POST') {
+      const targetId = deleteMatch[1];
+      const items = await this.state.storage.list<Record<string, unknown>>({
+        prefix: 'report:',
+      });
+      for (const [key, value] of items) {
+        if ((value as { id?: string }).id === targetId) {
+          await this.state.storage.delete(key);
+          return new Response(JSON.stringify({ ok: true }), {
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+      }
+      return new Response(JSON.stringify({ error: 'not found' }), { status: 404 });
+    }
+
+    return new Response('Not found', { status: 404 });
   }
 }

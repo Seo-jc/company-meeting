@@ -9,6 +9,14 @@ mode = "smart"
 name = "ROOMS"
 class_name = "Room"
 
+[[durable_objects.bindings]]
+name = "BUG_REPORTS"
+class_name = "BugReportsDO"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["Room"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["BugReportsDO"]

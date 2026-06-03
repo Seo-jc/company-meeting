@@ -2,6 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 import Logo from './Logo';
 import AudioDevices from './AudioDevices';
 import Manual from './Manual';
+import AdminLogin from './AdminLogin';
+import BugViewerModal from './BugViewerModal';
+import {
+  fetchBugs,
+  getStoredPassword,
+  clearStoredPassword,
+} from '../lib/adminAuth';
 
 const SIGNALING_HTTP_BASE =
   (import.meta as any).env?.VITE_SIGNALING_URL?.replace(
@@ -127,6 +134,13 @@ export default function Lobby({ onJoin }: Props) {
   const [newMeetingCode, setNewMeetingCode] = useState('');
   const [error, setError] = useState('');
   const [showManual, setShowManual] = useState(false);
+  // Admin bug viewer
+  const [adminPassword, setAdminPassword] = useState<string | null>(
+    () => getStoredPassword()
+  );
+  const [showAdminLogin, setShowAdminLogin] = useState(false);
+  const [showBugViewer, setShowBugViewer] = useState(false);
+  const [bugUnread, setBugUnread] = useState(0);
   const cancelledRef = useRef(false);
 
   useEffect(() => {
@@ -135,6 +149,46 @@ export default function Lobby({ onJoin }: Props) {
     const lastName = localStorage.getItem(LAST_NAME_KEY);
     if (lastName) setDisplayName(lastName);
   }, []);
+
+  // Hidden activation shortcut: Ctrl+Shift+B opens admin login (or viewer if already auth'd)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && (e.key === 'B' || e.key === 'b')) {
+        e.preventDefault();
+        if (adminPassword) {
+          setShowBugViewer(true);
+        } else {
+          setShowAdminLogin(true);
+        }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [adminPassword]);
+
+  // Periodically refresh unread count for admin users.
+  useEffect(() => {
+    if (!adminPassword) return;
+    let stopped = false;
+    const refresh = async () => {
+      const data = await fetchBugs(adminPassword, 1, 0);
+      if (stopped) return;
+      if (data === null) {
+        // Password no longer valid → reset auth
+        clearStoredPassword();
+        setAdminPassword(null);
+        setBugUnread(0);
+        return;
+      }
+      setBugUnread(data.unread);
+    };
+    void refresh();
+    const t = window.setInterval(() => void refresh(), 60_000);
+    return () => {
+      stopped = true;
+      window.clearInterval(t);
+    };
+  }, [adminPassword]);
 
   const recordRecent = (name: string, code: string) => {
     const next = withRecent(recentMeetings, { name, code });
@@ -303,6 +357,21 @@ export default function Lobby({ onJoin }: Props) {
 
   return (
     <div className="lobby">
+      {adminPassword && (
+        <button
+          type="button"
+          className="lobby-bug-btn"
+          onClick={() => setShowBugViewer(true)}
+          title="버그 보고서 보기 (관리자 전용)"
+        >
+          🐞 버그 확인
+          {bugUnread > 0 && (
+            <span className="lobby-bug-badge">
+              {bugUnread > 99 ? '99+' : bugUnread}
+            </span>
+          )}
+        </button>
+      )}
       <div className="lobby-card">
         <div className="lobby-brand">
           <Logo size="lg" showWordmark={false} />
@@ -551,6 +620,22 @@ export default function Lobby({ onJoin }: Props) {
       <AudioDevices />
       </div>
       {showManual && <Manual onClose={() => setShowManual(false)} />}
+      {showAdminLogin && (
+        <AdminLogin
+          onSuccess={(pwd) => {
+            setAdminPassword(pwd);
+            setShowAdminLogin(false);
+            setShowBugViewer(true);
+          }}
+          onCancel={() => setShowAdminLogin(false)}
+        />
+      )}
+      {showBugViewer && adminPassword && (
+        <BugViewerModal
+          password={adminPassword}
+          onClose={() => setShowBugViewer(false)}
+        />
+      )}
     </div>
   );
 }
