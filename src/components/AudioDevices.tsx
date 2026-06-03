@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import AudioTestControls from './AudioTestControls';
 
 const MIC_KEY = 'selectedMicId';
 const SPEAKER_KEY = 'selectedSpeakerId';
@@ -138,6 +139,12 @@ export default function AudioDevices() {
             </p>
           )}
         </div>
+
+        <AudioTestControls
+          micDeviceId={selectedMic}
+          speakerDeviceId={selectedSpeaker}
+          variant="lobby"
+        />
       </div>
     </aside>
   );

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import AudioTestControls from './AudioTestControls';
 
 const MIC_KEY = 'selectedMicId';
 const SPEAKER_KEY = 'selectedSpeakerId';
@@ -122,6 +123,12 @@ export default function AudioSettingsPopover({
           <p className="audio-hint">스피커 출력 선택 미지원 환경</p>
         )}
       </div>
+
+      <AudioTestControls
+        micDeviceId={selectedMic}
+        speakerDeviceId={selectedSpeaker}
+        variant="popover"
+      />
     </div>
   );
 }
