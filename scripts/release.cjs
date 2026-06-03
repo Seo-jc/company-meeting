@@ -19,6 +19,8 @@ if (!process.env.GH_TOKEN) {
 console.log('[release] GH_TOKEN loaded (length:', process.env.GH_TOKEN.length, ')');
 
 const steps = [
+  // Hook-order violations and similar bugs MUST be caught here, not by users.
+  { cmd: 'npm', args: ['run', 'lint'], label: 'lint (eslint rules-of-hooks)' },
   { cmd: 'npm', args: ['run', 'build'], label: 'build' },
   {
     cmd: 'npx',

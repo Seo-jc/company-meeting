@@ -14,7 +14,8 @@
     "dist:win": "npm run build && electron-builder --win",
     "dist:mac": "npm run build && electron-builder --mac",
     "dist:linux": "npm run build && electron-builder --linux",
-    "release": "node scripts/release.cjs"
+    "release": "node scripts/release.cjs",
+    "lint": "eslint src --max-warnings=999"
   },
   "dependencies": {
     "electron-updater": "^6.3.9",
@@ -22,6 +23,7 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "@resvg/resvg-js": "^2.6.2",
     "@types/node": "^22.0.0",
     "@types/react": "^18.3.3",
@@ -31,7 +33,10 @@
     "dotenv": "^16.4.5",
     "electron": "^33.4.11",
     "electron-builder": "^25.0.5",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react-hooks": "^5.2.0",
     "typescript": "^5.5.4",
+    "typescript-eslint": "^8.60.1",
     "vite": "^5.4.1",
     "wait-on": "^8.0.0"
   }
