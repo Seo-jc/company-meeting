@@ -14,6 +14,7 @@ import ChatTab from './ChatTab';
 import Logo from './Logo';
 import AudioSettingsPopover from './AudioSettingsPopover';
 import { useSpeakingDetection } from '../lib/speakingDetection';
+import { getIceServers } from '../lib/turnCredentials';
 
 type Props = {
   roomCode: string;
@@ -129,6 +130,15 @@ export default function MeetingRoom({
           return;
         }
 
+        // Fetch ICE servers (STUN + TURN if available) before establishing peer connections.
+        // This is what gives Vietnam/restrictive-network users a working relay.
+        const iceServers = await getIceServers();
+        if (cancelled) {
+          signaling.close();
+          localStream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+
         const mesh = new MeshConnection(
           localStream,
           signaling,
@@ -202,7 +212,8 @@ export default function MeetingRoom({
                 )
               );
             },
-          }
+          },
+          iceServers
         );
         meshRef.current = mesh;
         setStatus('connected');

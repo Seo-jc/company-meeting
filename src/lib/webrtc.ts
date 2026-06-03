@@ -1,7 +1,7 @@
 import { SignalingClient } from './signaling';
 import { sendBugReport } from './bugReporter';
 
-const ICE_SERVERS: RTCIceServer[] = [
+const FALLBACK_ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
 ];
@@ -90,7 +90,8 @@ export class MeshConnection {
     private signaling: SignalingClient,
     private myId: string,
     _myName: string,
-    private cb: Callbacks
+    private cb: Callbacks,
+    private iceServers: RTCIceServer[] = FALLBACK_ICE_SERVERS
   ) {
     this.bindSignaling();
   }
@@ -301,7 +302,7 @@ export class MeshConnection {
   }
 
   private createPc(peerId: string): RTCPeerConnection {
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    const pc = new RTCPeerConnection({ iceServers: this.iceServers });
     const polite = this.myId < peerId;
     const state: PeerState = {
       pc,

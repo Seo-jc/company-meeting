@@ -3,6 +3,8 @@ export interface Env {
   BUG_REPORTS: DurableObjectNamespace;
   GEMINI_API_KEY?: string;
   ADMIN_PASSWORD?: string;
+  TURN_TOKEN_ID?: string;
+  TURN_TOKEN_SECRET?: string;
 }
 
 const CORS_HEADERS = {
@@ -156,6 +158,49 @@ export default {
     if (url.pathname === '/summarize' && request.method === 'POST') {
       return handleSummarize(request, env);
     }
+
+    // ============== TURN credentials proxy ==============
+    if (url.pathname === '/api/turn-credentials' && request.method === 'GET') {
+      const tokenId = (env.TURN_TOKEN_ID ?? '').trim();
+      const tokenSecret = (env.TURN_TOKEN_SECRET ?? '').trim();
+      if (!tokenId || !tokenSecret) {
+        return new Response(JSON.stringify({ enabled: false }), {
+          headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+        });
+      }
+      try {
+        const resp = await fetch(
+          `https://rtc.live.cloudflare.com/v1/turn/keys/${tokenId}/credentials/generate`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${tokenSecret}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ ttl: 86400 }),
+          }
+        );
+        if (!resp.ok) {
+          const txt = await resp.text();
+          console.error('TURN credential gen failed', resp.status, txt);
+          return new Response(JSON.stringify({ enabled: false, error: 'upstream' }), {
+            headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+          });
+        }
+        const data = (await resp.json()) as {
+          iceServers?: { urls?: string | string[]; username?: string; credential?: string };
+        };
+        return new Response(JSON.stringify({ enabled: true, iceServers: data.iceServers }), {
+          headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+        });
+      } catch (err) {
+        console.error('TURN credential error', err);
+        return new Response(JSON.stringify({ enabled: false, error: 'exception' }), {
+          headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+        });
+      }
+    }
+    // ============== End TURN ==============
 
     // ============== Bug reports API ==============
     if (url.pathname === '/api/report' && request.method === 'POST') {
