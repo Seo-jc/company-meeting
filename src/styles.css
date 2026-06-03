@@ -1347,6 +1347,11 @@ input {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  min-height: 0;
+}
+
+/* Saved-meetings panel can be tall; recent-panel inherits flex from parent. */
+.lobby-saved-panel .saved-panel-body {
   min-height: 240px;
 }
 
@@ -1356,22 +1361,25 @@ input {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  flex: 1;
-  padding: 1.25rem 0.75rem;
+  flex: 1 1 auto;
+  padding: 1rem 0.5rem;
   color: #5a5e67;
   text-align: center;
-  min-height: 100px;
+  min-height: 0;
+  width: 100%;
 }
 
 .saved-empty-icon {
-  font-size: 1.8rem;
+  font-size: 1.7rem;
   opacity: 0.55;
-  line-height: 1;
+  line-height: 1.1;
+  flex-shrink: 0;
 }
 
 .saved-empty-text {
   font-size: 0.78rem;
-  line-height: 1.55;
+  line-height: 1.5;
+  flex-shrink: 0;
 }
 
 .lobby-section {
