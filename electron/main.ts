@@ -237,7 +237,8 @@ ipcMain.handle('apply-update', async () => {
     console.warn('[updater] apply-update called but no pending download');
     return;
   }
-  console.log('[updater] quitAndInstall for v' + pendingDownloadedVersion);
+  console.log('[updater] quitAndInstall (silent) for v' + pendingDownloadedVersion);
   // Defer slightly so the IPC reply is returned to the renderer before quit.
-  setTimeout(() => autoUpdater.quitAndInstall(), 200);
+  // Args: isSilent=true (no installer wizard), isForceRunAfter=true (auto-relaunch).
+  setTimeout(() => autoUpdater.quitAndInstall(true, true), 200);
 });

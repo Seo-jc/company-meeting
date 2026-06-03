@@ -2020,11 +2020,19 @@ input {
   overflow: auto;
 }
 
+.meeting-area.has-focus {
+  flex-direction: row;
+}
+
 .meeting-area.has-focus .focus-area {
   flex: 1;
   display: flex;
   padding: 0.75rem;
   min-height: 0;
+  min-width: 0;
+  position: relative;
+  overflow: hidden;
+  user-select: none;
 }
 
 .meeting-area.has-focus .focus-area .tile {
@@ -2040,22 +2048,70 @@ input {
   font-size: 3.5rem;
 }
 
-.meeting-area.has-focus .thumbnails {
-  height: 140px;
+/* Zoomable focus area: scale & pan applied to video/screen content */
+.focus-area-zoomable .tile video,
+.focus-area-zoomable .tile-screen-preview video {
+  transform: translate(var(--pan-x, 0px), var(--pan-y, 0px)) scale(var(--zoom, 1));
+  transform-origin: center center;
+  will-change: transform;
+  transition: transform 0.04s linear;
+}
+
+.zoom-controls {
+  position: absolute;
+  bottom: 14px;
+  right: 14px;
   display: flex;
+  gap: 2px;
+  background: rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 3px;
+  z-index: 5;
+  backdrop-filter: blur(8px);
+}
+
+.zoom-controls button {
+  background: transparent;
+  color: #e8e8ea;
+  border: none;
+  padding: 5px 11px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border-radius: 4px;
+  min-width: 36px;
+  font-family: inherit;
+}
+
+.zoom-controls button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.zoom-controls button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.meeting-area.has-focus .thumbnails {
+  width: 220px;
+  display: flex;
+  flex-direction: column;
   gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  overflow-x: auto;
+  padding: 0.5rem;
+  overflow-y: auto;
+  overflow-x: hidden;
   background: #14161b;
-  border-top: 1px solid #2a2e36;
+  border-left: 1px solid #2a2e36;
+  border-top: none;
   flex: 0 0 auto;
 }
 
 .meeting-area.has-focus .thumbnails .tile {
-  width: 200px;
-  height: 113px;
+  width: 100%;
+  height: auto;
   flex: 0 0 auto;
-  aspect-ratio: auto;
+  aspect-ratio: 16 / 9;
 }
 
 .meeting-area.has-focus .thumbnails .tile-screen-preview {
@@ -2063,9 +2119,9 @@ input {
 }
 
 .meeting-area.has-focus .thumbnails .tile-avatar {
-  width: 50px;
-  height: 50px;
-  font-size: 1.3rem;
+  width: 48px;
+  height: 48px;
+  font-size: 1.25rem;
 }
 
 .tile-focused {

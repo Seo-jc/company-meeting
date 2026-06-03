@@ -30,12 +30,14 @@ win:
   artifactName: ${productName}-Setup-${version}.${ext}
 
 nsis:
-  oneClick: false
+  oneClick: true
   perMachine: false
-  allowToChangeInstallationDirectory: true
+  allowElevation: false
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: 사내 회의
+  runAfterFinish: true
+  differentialPackage: true
 
 mac:
   target:

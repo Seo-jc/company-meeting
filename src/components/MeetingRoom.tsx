@@ -560,6 +560,19 @@ export default function MeetingRoom({
   // Self is considered "speaking" only when not muted and not listen-only.
   const selfSpeaking = !muted && !listenOnly && speakers.has(SELF_ID);
 
+  // Zoom state for focused (expanded) tile — controlled by mouse wheel / buttons / drag.
+  // Reset when focus changes.
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [dragStart, setDragStart] = useState<
+    { x: number; y: number; bx: number; by: number } | null
+  >(null);
+  useEffect(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+    setDragStart(null);
+  }, [expandedId]);
+
   const tiles: Array<{ id: string; node: ReactNode }> = [];
   tiles.push({
     id: SELF_ID,
@@ -607,6 +620,50 @@ export default function MeetingRoom({
   const otherTiles = expandedId
     ? tiles.filter((t) => t.id !== expandedId)
     : tiles;
+
+  // ----- Zoom / pan for focused screen-share content -----
+  const focusHasVideo = (() => {
+    if (!expandedId) return false;
+    if (expandedId === SCREEN_SELF_ID) return true;
+    const p = peers.find((pp) => pp.peerId === expandedId);
+    return !!(p && p.stream.getVideoTracks().length > 0);
+  })();
+
+  const handleZoomWheel = (e: React.WheelEvent) => {
+    if (!focusHasVideo) return;
+    e.preventDefault();
+    const delta = -e.deltaY * 0.0015;
+    setZoom((z) => {
+      const next = Math.max(1, Math.min(5, z + delta));
+      if (next <= 1.01) setPan({ x: 0, y: 0 });
+      return next;
+    });
+  };
+
+  const handlePanStart = (e: React.MouseEvent) => {
+    if (!focusHasVideo || zoom <= 1) return;
+    setDragStart({ x: e.clientX, y: e.clientY, bx: pan.x, by: pan.y });
+  };
+  const handlePanMove = (e: React.MouseEvent) => {
+    if (!dragStart) return;
+    setPan({
+      x: dragStart.bx + (e.clientX - dragStart.x),
+      y: dragStart.by + (e.clientY - dragStart.y),
+    });
+  };
+  const handlePanEnd = () => setDragStart(null);
+
+  const zoomIn = () => setZoom((z) => Math.min(5, z + 0.25));
+  const zoomOut = () =>
+    setZoom((z) => {
+      const next = Math.max(1, z - 0.25);
+      if (next <= 1.01) setPan({ x: 0, y: 0 });
+      return next;
+    });
+  const zoomReset = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
 
   return (
     <div className={`meeting ${chatOpen ? 'chat-open' : ''}`}>
@@ -662,8 +719,55 @@ export default function MeetingRoom({
 
       <main className={`meeting-area ${expandedId ? 'has-focus' : ''}`}>
         {focusedTile && (
-          <section className="focus-area" key={focusedTile.id}>
+          <section
+            className={`focus-area ${focusHasVideo ? 'focus-area-zoomable' : ''}`}
+            key={focusedTile.id}
+            onWheel={handleZoomWheel}
+            onMouseDown={handlePanStart}
+            onMouseMove={handlePanMove}
+            onMouseUp={handlePanEnd}
+            onMouseLeave={handlePanEnd}
+            style={
+              focusHasVideo
+                ? ({
+                    ['--zoom' as string]: zoom,
+                    ['--pan-x' as string]: `${pan.x}px`,
+                    ['--pan-y' as string]: `${pan.y}px`,
+                    cursor: zoom > 1 ? (dragStart ? 'grabbing' : 'grab') : 'default',
+                  } as React.CSSProperties)
+                : undefined
+            }
+          >
             {focusedTile.node}
+            {focusHasVideo && (
+              <div className="zoom-controls">
+                <button
+                  type="button"
+                  onClick={zoomOut}
+                  disabled={zoom <= 1}
+                  title="축소 (마우스 휠 아래로도 가능)"
+                  aria-label="축소"
+                >
+                  −
+                </button>
+                <button
+                  type="button"
+                  onClick={zoomReset}
+                  title="원래 크기로 (100%)"
+                >
+                  {Math.round(zoom * 100)}%
+                </button>
+                <button
+                  type="button"
+                  onClick={zoomIn}
+                  disabled={zoom >= 5}
+                  title="확대 (마우스 휠 위로도 가능)"
+                  aria-label="확대"
+                >
+                  +
+                </button>
+              </div>
+            )}
           </section>
         )}
         <section className={expandedId ? 'thumbnails' : 'meeting-grid'}>
