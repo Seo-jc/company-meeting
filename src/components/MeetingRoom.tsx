@@ -227,6 +227,22 @@ export default function MeetingRoom({
     };
   }, [roomCode, displayName, retryNonce, listenOnly]);
 
+  // Speaking detection runs against whatever streams are currently available.
+  // MUST be called before any conditional early returns to keep React hook order stable.
+  const speakingStreams = (() => {
+    const list: Array<{ id: string; stream: MediaStream }> = [];
+    if (status === 'connected' && localStreamRef.current && !listenOnly) {
+      list.push({ id: SELF_ID, stream: localStreamRef.current });
+    }
+    if (status === 'connected') {
+      for (const p of peers) {
+        list.push({ id: p.peerId, stream: p.stream });
+      }
+    }
+    return list;
+  })();
+  const speakers = useSpeakingDetection(speakingStreams);
+
   const handleRetry = () => {
     setListenOnly(false);
     setStatus('connecting');
@@ -529,19 +545,6 @@ export default function MeetingRoom({
       </div>
     );
   }
-
-  // Build list of streams to monitor for speaking detection.
-  const speakingStreams = (() => {
-    const list: Array<{ id: string; stream: MediaStream }> = [];
-    if (localStreamRef.current && !listenOnly) {
-      list.push({ id: SELF_ID, stream: localStreamRef.current });
-    }
-    for (const p of peers) {
-      list.push({ id: p.peerId, stream: p.stream });
-    }
-    return list;
-  })();
-  const speakers = useSpeakingDetection(speakingStreams);
 
   // Self is considered "speaking" only when not muted and not listen-only.
   const selfSpeaking = !muted && !listenOnly && speakers.has(SELF_ID);
