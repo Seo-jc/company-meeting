@@ -1393,7 +1393,8 @@ input {
   font-size: 0.78rem;
 }
 
-.lobby-manual-btn {
+.lobby-manual-btn,
+.lobby-feedback-btn {
   margin-top: 0.4rem;
   background: transparent;
   border: 1px dashed #353a44;
@@ -1413,6 +1414,144 @@ input {
   border-color: #1abc9c;
   color: #1abc9c;
   background: rgba(26, 188, 156, 0.05);
+}
+
+.lobby-feedback-btn {
+  margin-top: 0.3rem;
+}
+
+.lobby-feedback-btn:hover {
+  border-color: #7fd0ff;
+  color: #7fd0ff;
+  background: rgba(127, 208, 255, 0.05);
+}
+
+/* ---------- Feedback Modal ---------- */
+.feedback-form {
+  padding: 1.2rem 1.4rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  overflow-y: auto;
+  max-height: 72vh;
+}
+
+.feedback-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #cdd1d8;
+  margin-top: 0.4rem;
+}
+
+.feedback-optional {
+  color: #6b7280;
+  font-weight: 500;
+  font-size: 0.74rem;
+}
+
+.feedback-required {
+  color: #ef6868;
+  font-weight: 700;
+}
+
+.feedback-form input,
+.feedback-form textarea {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #353a44;
+  border-radius: 6px;
+  background: #14161b;
+  color: #e8e8ea;
+  font-size: 0.88rem;
+  font-family: inherit;
+  resize: vertical;
+}
+
+.feedback-form input:focus,
+.feedback-form textarea:focus {
+  outline: none;
+  border-color: #7fd0ff;
+}
+
+.feedback-form input:disabled,
+.feedback-form textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.feedback-char-count {
+  text-align: right;
+  font-size: 0.7rem;
+  color: #6b7280;
+  margin-top: -0.2rem;
+}
+
+.feedback-category-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.4rem;
+}
+
+.feedback-cat {
+  background: #14161b;
+  border: 1px solid #353a44;
+  border-radius: 8px;
+  padding: 0.65rem 0.7rem;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  transition: all 0.12s ease;
+  font-family: inherit;
+}
+
+.feedback-cat:hover:not(:disabled) {
+  border-color: #7fd0ff;
+}
+
+.feedback-cat-active {
+  border-color: #7fd0ff !important;
+  background: rgba(127, 208, 255, 0.06) !important;
+}
+
+.feedback-cat-icon {
+  font-size: 1.2rem;
+}
+
+.feedback-cat-name {
+  font-weight: 700;
+  color: #e8e8ea;
+  font-size: 0.85rem;
+}
+
+.feedback-cat-hint {
+  color: #9aa0a8;
+  font-size: 0.72rem;
+}
+
+.feedback-footer-note {
+  margin-top: 0.6rem;
+  font-size: 0.72rem;
+  color: #6b7280;
+  text-align: center;
+  padding: 0.4rem 0.6rem;
+  background: rgba(127, 208, 255, 0.04);
+  border-radius: 5px;
+  border: 1px solid rgba(127, 208, 255, 0.15);
+}
+
+.feedback-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.7rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid #2a2e36;
+}
+
+.feedback-actions .btn {
+  min-width: 100px;
 }
 
 /* ---------- Manual Modal ---------- */

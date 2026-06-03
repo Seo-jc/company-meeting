@@ -4,6 +4,7 @@ import AudioDevices from './AudioDevices';
 import Manual from './Manual';
 import AdminLogin from './AdminLogin';
 import BugViewerModal from './BugViewerModal';
+import FeedbackModal from './FeedbackModal';
 import {
   fetchBugs,
   getStoredPassword,
@@ -140,6 +141,7 @@ export default function Lobby({ onJoin }: Props) {
   );
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [showBugViewer, setShowBugViewer] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
   const [bugUnread, setBugUnread] = useState(0);
   const cancelledRef = useRef(false);
 
@@ -447,6 +449,15 @@ export default function Lobby({ onJoin }: Props) {
         >
           📖 사용자 메뉴얼
         </button>
+
+        <button
+          type="button"
+          className="lobby-feedback-btn"
+          onClick={() => setShowFeedback(true)}
+          title="기능 제안이나 의견을 보냅니다"
+        >
+          💡 의견 보내기
+        </button>
       </div>
 
       <div className="lobby-right">
@@ -620,6 +631,12 @@ export default function Lobby({ onJoin }: Props) {
       <AudioDevices />
       </div>
       {showManual && <Manual onClose={() => setShowManual(false)} />}
+      {showFeedback && (
+        <FeedbackModal
+          defaultName={displayName}
+          onClose={() => setShowFeedback(false)}
+        />
+      )}
       {showAdminLogin && (
         <AdminLogin
           onSuccess={(pwd) => {

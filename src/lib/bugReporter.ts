@@ -17,6 +17,13 @@ export type ReportType =
   | 'file-transfer-failed'
   | 'update-failed'
   | 'manual'
+  | 'feedback'
+  | 'other';
+
+export type FeedbackCategory =
+  | 'feature-add'
+  | 'improvement'
+  | 'usability'
   | 'other';
 
 export type ReportSeverity = 'critical' | 'warning' | 'info';
@@ -29,6 +36,10 @@ export type BugReportInput = {
   userDescription?: string;
   roomCode?: string;
   participantCount?: number;
+  /** Used when type === 'feedback' */
+  feedbackCategory?: FeedbackCategory;
+  /** Used when type === 'feedback' or 'manual' */
+  submitterName?: string;
 };
 
 // Throttle: prevent same error spam. Map of fingerprint → last sent ts.
@@ -80,11 +91,13 @@ export async function sendBugReport(r: BugReportInput): Promise<boolean> {
   reportingInFlight = true;
   try {
     const os = detectOs();
+    const defaultSeverity: ReportSeverity =
+      r.type === 'manual' || r.type === 'feedback' ? 'info' : 'critical';
     const payload = {
       id: crypto.randomUUID(),
       ts: Date.now(),
       type: r.type,
-      severity: r.severity ?? (r.type === 'manual' ? 'warning' : 'critical'),
+      severity: r.severity ?? defaultSeverity,
       message: r.message.slice(0, 500),
       appVersion: __APP_VERSION__,
       os: os.name,
@@ -96,7 +109,10 @@ export async function sendBugReport(r: BugReportInput): Promise<boolean> {
       participantCount: r.participantCount,
       details: r.details,
       userDescription: r.userDescription,
-      logs: getRecentLogs(20),
+      feedbackCategory: r.feedbackCategory,
+      submitterName: r.submitterName,
+      // Feedback doesn't need console logs (it's user content, not error).
+      logs: r.type === 'feedback' ? [] : getRecentLogs(20),
     };
 
     const ctrl = new AbortController();

@@ -40,7 +40,15 @@ const TYPE_LABEL: Record<string, string> = {
   'file-transfer-failed': '파일 전송 실패',
   'update-failed': '업데이트 실패',
   manual: '사용자 신고',
+  feedback: '의견 / 기능 제안',
   other: '기타',
+};
+
+const FEEDBACK_CAT_LABEL: Record<string, string> = {
+  'feature-add': '🆕 기능 추가',
+  improvement: '✨ 기존 기능 개선',
+  usability: '🤔 사용성 문제',
+  other: '💬 기타',
 };
 
 export default function BugViewerModal({ password, onClose }: Props) {
@@ -50,7 +58,7 @@ export default function BugViewerModal({ password, onClose }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selected, setSelected] = useState<BugReportRecord | null>(null);
-  const [filter, setFilter] = useState<'all' | 'unread' | 'critical'>('all');
+  const [filter, setFilter] = useState<'all' | 'unread' | 'critical' | 'feedback'>('all');
 
   const reload = async () => {
     setLoading(true);
@@ -117,8 +125,11 @@ export default function BugViewerModal({ password, onClose }: Props) {
   const filtered = reports.filter((r) => {
     if (filter === 'unread') return !r.read;
     if (filter === 'critical') return r.severity === 'critical';
+    if (filter === 'feedback') return r.type === 'feedback';
     return true;
   });
+
+  const feedbackCount = reports.filter((r) => r.type === 'feedback').length;
 
   if (selected) {
     return <BugDetailView report={selected} onBack={() => setSelected(null)} onDelete={() => handleDelete(selected)} />;
@@ -159,6 +170,12 @@ export default function BugViewerModal({ password, onClose }: Props) {
             >
               🔴 심각
             </button>
+            <button
+              className={`bug-filter ${filter === 'feedback' ? 'active' : ''}`}
+              onClick={() => setFilter('feedback')}
+            >
+              💡 의견 ({feedbackCount})
+            </button>
           </div>
           <div className="bug-actions">
             <button className="btn btn-small" onClick={() => void reload()} disabled={loading}>
@@ -182,12 +199,19 @@ export default function BugViewerModal({ password, onClose }: Props) {
               <article key={r.id} className={`bug-item ${r.read ? '' : 'bug-item-unread'}`}>
                 <div className="bug-item-main">
                   <div className="bug-item-row">
-                    <span className="bug-sev">{SEVERITY_ICON[r.severity] ?? '⚪'}</span>
+                    <span className="bug-sev">
+                      {r.type === 'feedback' ? '💡' : SEVERITY_ICON[r.severity] ?? '⚪'}
+                    </span>
                     {!r.read && <span className="bug-new-tag">새</span>}
-                    <span className="bug-item-title">{TYPE_LABEL[r.type] ?? r.type}</span>
+                    <span className="bug-item-title">
+                      {r.type === 'feedback' && r.feedbackCategory
+                        ? FEEDBACK_CAT_LABEL[r.feedbackCategory] ?? '의견'
+                        : TYPE_LABEL[r.type] ?? r.type}
+                    </span>
                   </div>
                   <div className="bug-item-meta">
                     {timeAgo(r.ts)} · v{r.appVersion} · {r.os}
+                    {r.submitterName && ` · ${r.submitterName}`}
                   </div>
                   <div className="bug-item-msg">
                     {r.userDescription || r.message}
@@ -237,10 +261,14 @@ function BugDetailView({
         </header>
         <div className="bug-modal-body bug-detail">
           <h2>
-            {SEVERITY_ICON[r.severity] ?? '⚪'} {TYPE_LABEL[r.type] ?? r.type}
+            {r.type === 'feedback' ? '💡' : SEVERITY_ICON[r.severity] ?? '⚪'}{' '}
+            {r.type === 'feedback' && r.feedbackCategory
+              ? FEEDBACK_CAT_LABEL[r.feedbackCategory] ?? '의견'
+              : TYPE_LABEL[r.type] ?? r.type}
           </h2>
           <div className="bug-detail-time">
             {new Date(r.ts).toLocaleString('ko-KR')}
+            {r.submitterName && ` · 보낸 사람: ${r.submitterName}`}
           </div>
 
           {hint && (

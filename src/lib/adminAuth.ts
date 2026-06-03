@@ -48,6 +48,8 @@ export type BugReportRecord = {
   userDescription?: string;
   logs?: Array<{ level: string; ts: number; msg: string }>;
   read?: boolean;
+  feedbackCategory?: string;
+  submitterName?: string;
 };
 
 export async function fetchBugs(
