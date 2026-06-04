@@ -6,6 +6,7 @@ import AdminLogin from './AdminLogin';
 import BugViewerModal from './BugViewerModal';
 import FeedbackModal from './FeedbackModal';
 import PromoteRenameDialog from './PromoteRenameDialog';
+import PresenceModal from './PresenceModal';
 import {
   fetchBugs,
   getStoredPassword,
@@ -142,6 +143,7 @@ export default function Lobby({ onJoin }: Props) {
   );
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [showBugViewer, setShowBugViewer] = useState(false);
+  const [showPresence, setShowPresence] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [renamingMeeting, setRenamingMeeting] = useState<RecentMeeting | null>(null);
   const [bugUnread, setBugUnread] = useState(0);
@@ -368,19 +370,29 @@ export default function Lobby({ onJoin }: Props) {
   return (
     <div className="lobby">
       {adminPassword && (
-        <button
-          type="button"
-          className="lobby-bug-btn"
-          onClick={() => setShowBugViewer(true)}
-          title="버그 보고서 보기 (관리자 전용)"
-        >
-          🐞 버그 확인
-          {bugUnread > 0 && (
-            <span className="lobby-bug-badge">
-              {bugUnread > 99 ? '99+' : bugUnread}
-            </span>
-          )}
-        </button>
+        <div className="lobby-admin-bar">
+          <button
+            type="button"
+            className="lobby-bug-btn"
+            onClick={() => setShowPresence(true)}
+            title="접속 현황 보기 (관리자 전용)"
+          >
+            👥 접속 현황
+          </button>
+          <button
+            type="button"
+            className="lobby-bug-btn"
+            onClick={() => setShowBugViewer(true)}
+            title="버그 보고서 보기 (관리자 전용)"
+          >
+            🐞 버그 확인
+            {bugUnread > 0 && (
+              <span className="lobby-bug-badge">
+                {bugUnread > 99 ? '99+' : bugUnread}
+              </span>
+            )}
+          </button>
+        </div>
       )}
       <div className="lobby-card">
         <div className="lobby-brand">
@@ -661,6 +673,12 @@ export default function Lobby({ onJoin }: Props) {
             setShowBugViewer(true);
           }}
           onCancel={() => setShowAdminLogin(false)}
+        />
+      )}
+      {showPresence && adminPassword && (
+        <PresenceModal
+          password={adminPassword}
+          onClose={() => setShowPresence(false)}
         />
       )}
       {showBugViewer && adminPassword && (

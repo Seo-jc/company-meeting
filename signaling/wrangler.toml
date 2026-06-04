@@ -13,6 +13,10 @@ class_name = "Room"
 name = "BUG_REPORTS"
 class_name = "BugReportsDO"
 
+[[durable_objects.bindings]]
+name = "PRESENCE"
+class_name = "PresenceDO"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["Room"]
@@ -20,3 +24,7 @@ new_sqlite_classes = ["Room"]
 [[migrations]]
 tag = "v2"
 new_sqlite_classes = ["BugReportsDO"]
+
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["PresenceDO"]

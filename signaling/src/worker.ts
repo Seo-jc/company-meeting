@@ -1,10 +1,29 @@
 export interface Env {
   ROOMS: DurableObjectNamespace;
   BUG_REPORTS: DurableObjectNamespace;
+  PRESENCE: DurableObjectNamespace;
   GEMINI_API_KEY?: string;
   ADMIN_PASSWORD?: string;
   TURN_TOKEN_ID?: string;
   TURN_TOKEN_SECRET?: string;
+}
+
+/**
+ * Mask an IP address for display. Keeps enough to distinguish networks/ISPs
+ * without exposing the full address. IPv4: keep first 3 octets. IPv6: keep first 3 groups.
+ */
+function maskIp(ip: string | null): string {
+  if (!ip) return '알 수 없음';
+  if (ip.includes(':')) {
+    // IPv6
+    const groups = ip.split(':');
+    return groups.slice(0, 3).join(':') + ':****';
+  }
+  const octets = ip.split('.');
+  if (octets.length === 4) {
+    return `${octets[0]}.${octets[1]}.${octets[2]}.x`;
+  }
+  return ip;
 }
 
 const CORS_HEADERS = {
@@ -299,6 +318,84 @@ export default {
     }
     // ============== End bug reports API ==============
 
+    // ============== Presence (realtime, NOT persisted) ==============
+    if (url.pathname === '/api/presence' && request.method === 'POST') {
+      let payload: { password?: string } = {};
+      try {
+        payload = await request.json();
+      } catch {
+        // ignore
+      }
+      const admin = (env.ADMIN_PASSWORD ?? '').trim();
+      if (!admin || payload.password !== admin) {
+        return new Response(JSON.stringify({ error: 'unauthorized' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+        });
+      }
+      // 1) Ask PresenceDO which rooms currently have participants (codes only).
+      const presId = env.PRESENCE.idFromName('global');
+      const pres = env.PRESENCE.get(presId);
+      const activeResp = await pres.fetch(new Request('https://internal/active-rooms'));
+      const { rooms } = (await activeResp.json()) as { rooms: string[] };
+
+      // 2) Fan out to each active room and collect LIVE participant info.
+      //    This data lives only in the live WebSocket attachment — nothing stored.
+      const all: Array<Record<string, unknown>> = [];
+      await Promise.all(
+        rooms.map(async (code) => {
+          try {
+            const rid = env.ROOMS.idFromName(code);
+            const r = env.ROOMS.get(rid);
+            const resp = await r.fetch(new Request('https://internal/presence'));
+            if (!resp.ok) return;
+            const data = (await resp.json()) as { participants: Array<Record<string, unknown>> };
+            for (const p of data.participants) {
+              all.push({ ...p, roomCode: code });
+            }
+          } catch {
+            // room may have just emptied; skip
+          }
+        })
+      );
+
+      return new Response(
+        JSON.stringify({ now: Date.now(), participants: all }),
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store',
+            ...CORS_HEADERS,
+          },
+        }
+      );
+    }
+
+    if (url.pathname === '/api/stats' && request.method === 'POST') {
+      let payload: { password?: string } = {};
+      try {
+        payload = await request.json();
+      } catch {
+        // ignore
+      }
+      const admin = (env.ADMIN_PASSWORD ?? '').trim();
+      if (!admin || payload.password !== admin) {
+        return new Response(JSON.stringify({ error: 'unauthorized' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+        });
+      }
+      const presId = env.PRESENCE.idFromName('global');
+      const pres = env.PRESENCE.get(presId);
+      const resp = await pres.fetch(new Request('https://internal/stats'));
+      const text = await resp.text();
+      return new Response(text, {
+        status: resp.status,
+        headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+      });
+    }
+    // ============== End presence/stats ==============
+
     const debugMatch = url.pathname.match(/^\/room\/([A-Z0-9]{4,10})\/debug$/);
     if (debugMatch) {
       const id = env.ROOMS.idFromName(debugMatch[1]);
@@ -315,17 +412,58 @@ export default {
   },
 };
 
-type Attachment = { peerId: string; displayName: string } | null;
+type Geo = {
+  country: string | null;
+  city: string | null;
+  region: string | null;
+  ipMasked: string;
+};
+
+type Attachment =
+  | {
+      peerId: string;
+      displayName: string;
+      geo?: Geo;
+      connectedAt?: number;
+    }
+  | null;
 
 export class Room {
   private state: DurableObjectState;
+  private env: Env;
+  private roomCode = '';
+  // Temporary geo holding for connections that haven't sent 'hello' yet.
+  private pendingGeo: Geo | null = null;
 
-  constructor(state: DurableObjectState) {
+  constructor(state: DurableObjectState, env: Env) {
     this.state = state;
+    this.env = env;
   }
 
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
+
+    // Internal: live presence list for this room (admin fan-out). Not persisted.
+    if (url.pathname === '/presence') {
+      const participants = this.state
+        .getWebSockets()
+        .map((ws) => {
+          const att = this.getAttachment(ws);
+          if (!att?.peerId) return null;
+          return {
+            displayName: att.displayName,
+            country: att.geo?.country ?? null,
+            city: att.geo?.city ?? null,
+            region: att.geo?.region ?? null,
+            ipMasked: att.geo?.ipMasked ?? '알 수 없음',
+            connectedAt: att.connectedAt ?? null,
+          };
+        })
+        .filter((p) => p !== null);
+      return new Response(JSON.stringify({ participants }), {
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+      });
+    }
 
     if (url.pathname.endsWith('/debug') && request.method === 'GET') {
       const sockets = this.state.getWebSockets();
@@ -353,6 +491,19 @@ export class Room {
       return new Response('Expected WebSocket', { status: 400 });
     }
 
+    // Capture room code from URL (/room/CODE) so we can report to presence.
+    const codeMatch = url.pathname.match(/\/room\/([A-Z0-9]{4,10})/);
+    if (codeMatch) this.roomCode = codeMatch[1];
+
+    // Capture geo from Cloudflare edge metadata (available on the upgrade request).
+    const cf = (request as Request & { cf?: Record<string, unknown> }).cf;
+    this.pendingGeo = {
+      country: (cf?.country as string) ?? null,
+      city: (cf?.city as string) ?? null,
+      region: (cf?.region as string) ?? null,
+      ipMasked: maskIp(request.headers.get('CF-Connecting-IP')),
+    };
+
     const pair = new WebSocketPair();
     const client = pair[0];
     const server = pair[1];
@@ -368,6 +519,25 @@ export class Room {
       return a && typeof a === 'object' && 'peerId' in a ? (a as Attachment) : null;
     } catch {
       return null;
+    }
+  }
+
+  private async reportPresence(
+    action: 'join' | 'leave',
+    info: { country: string | null; durationMs?: number }
+  ): Promise<void> {
+    if (!this.roomCode) return;
+    try {
+      const presId = this.env.PRESENCE.idFromName('global');
+      const pres = this.env.PRESENCE.get(presId);
+      await pres.fetch(
+        new Request(`https://internal/${action}`, {
+          method: 'POST',
+          body: JSON.stringify({ roomCode: this.roomCode, ...info }),
+        })
+      );
+    } catch (err) {
+      console.error('[Room] presence report failed', err);
     }
   }
 
@@ -431,7 +601,17 @@ export class Room {
 
     if (msg.type === 'hello') {
       console.log('[Room] hello from', msg.peerId, msg.displayName);
-      ws.serializeAttachment({ peerId: msg.peerId, displayName: msg.displayName });
+      const connectedAt = Date.now();
+      const geo = this.pendingGeo ?? undefined;
+      this.pendingGeo = null;
+      ws.serializeAttachment({
+        peerId: msg.peerId,
+        displayName: msg.displayName,
+        geo,
+        connectedAt,
+      });
+      // Report to presence/stats (anonymous: only country + duration counters).
+      void this.reportPresence('join', { country: geo?.country ?? null });
 
       const others: Array<{ peerId: string; displayName: string }> = [];
       for (const other of this.state.getWebSockets()) {
@@ -459,6 +639,11 @@ export class Room {
       const att = this.getAttachment(ws);
       console.log('[Room] bye from', att?.peerId);
       if (att) {
+        const durationMs = att.connectedAt ? Date.now() - att.connectedAt : 0;
+        void this.reportPresence('leave', {
+          country: att.geo?.country ?? null,
+          durationMs,
+        });
         ws.serializeAttachment(null);
         this.broadcastExcept(ws, { type: 'peer-left', peerId: att.peerId });
       }
@@ -499,6 +684,11 @@ export class Room {
     const att = this.getAttachment(ws);
     console.log('[Room] webSocketClose', { code, reason, wasClean, peerId: att?.peerId });
     if (att) {
+      const durationMs = att.connectedAt ? Date.now() - att.connectedAt : 0;
+      void this.reportPresence('leave', {
+        country: att.geo?.country ?? null,
+        durationMs,
+      });
       ws.serializeAttachment(null);
       this.broadcastExcept(ws, { type: 'peer-left', peerId: att.peerId });
     }
@@ -616,6 +806,136 @@ export class BugReportsDO {
         }
       }
       return new Response(JSON.stringify({ error: 'not found' }), { status: 404 });
+    }
+
+    return new Response('Not found', { status: 404 });
+  }
+}
+
+// ============== Presence Durable Object ==============
+// Tracks ONLY:
+//   - active room codes + per-room participant counts (codes/numbers — not personal)
+//   - anonymous aggregate stats (counters by country/day — no names, no IPs)
+// Realtime personal data (name/IP/location) is NEVER stored here; it lives only
+// in each Room's live WebSocket attachment and is fetched on-demand by admin.
+const STATS_DAY_RETENTION = 90; // keep last 90 days of daily stats, auto-trim
+
+type StatsShape = {
+  totalJoins: number;
+  totalMinutes: number;
+  byCountry: Record<string, number>;
+  byDay: Record<string, { joins: number; minutes: number }>;
+  byHour: Record<string, number>; // 0-23 → join count
+};
+
+function dayKey(ts: number): string {
+  const d = new Date(ts);
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(
+    d.getUTCDate()
+  ).padStart(2, '0')}`;
+}
+
+export class PresenceDO {
+  private state: DurableObjectState;
+
+  constructor(state: DurableObjectState) {
+    this.state = state;
+  }
+
+  private async getStats(): Promise<StatsShape> {
+    const s = await this.state.storage.get<StatsShape>('stats');
+    return (
+      s ?? {
+        totalJoins: 0,
+        totalMinutes: 0,
+        byCountry: {},
+        byDay: {},
+        byHour: {},
+      }
+    );
+  }
+
+  async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    const path = url.pathname;
+
+    if (path === '/join' && request.method === 'POST') {
+      const body = (await request.json()) as { roomCode?: string; country?: string | null };
+      const code = body.roomCode;
+      if (code) {
+        const counts =
+          (await this.state.storage.get<Record<string, number>>('roomCounts')) ?? {};
+        counts[code] = (counts[code] ?? 0) + 1;
+        await this.state.storage.put('roomCounts', counts);
+      }
+      // Anonymous stats
+      const now = Date.now();
+      const stats = await this.getStats();
+      stats.totalJoins += 1;
+      const country = body.country ?? 'UNKNOWN';
+      stats.byCountry[country] = (stats.byCountry[country] ?? 0) + 1;
+      const dk = dayKey(now);
+      stats.byDay[dk] = stats.byDay[dk] ?? { joins: 0, minutes: 0 };
+      stats.byDay[dk].joins += 1;
+      const hk = String(new Date(now).getUTCHours());
+      stats.byHour[hk] = (stats.byHour[hk] ?? 0) + 1;
+      // Trim old days
+      const days = Object.keys(stats.byDay).sort();
+      if (days.length > STATS_DAY_RETENTION) {
+        for (const d of days.slice(0, days.length - STATS_DAY_RETENTION)) {
+          delete stats.byDay[d];
+        }
+      }
+      await this.state.storage.put('stats', stats);
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (path === '/leave' && request.method === 'POST') {
+      const body = (await request.json()) as {
+        roomCode?: string;
+        country?: string | null;
+        durationMs?: number;
+      };
+      const code = body.roomCode;
+      if (code) {
+        const counts =
+          (await this.state.storage.get<Record<string, number>>('roomCounts')) ?? {};
+        if (counts[code]) {
+          counts[code] -= 1;
+          if (counts[code] <= 0) delete counts[code];
+          await this.state.storage.put('roomCounts', counts);
+        }
+      }
+      const minutes = Math.max(0, Math.round((body.durationMs ?? 0) / 60000));
+      if (minutes > 0) {
+        const stats = await this.getStats();
+        stats.totalMinutes += minutes;
+        const dk = dayKey(Date.now());
+        stats.byDay[dk] = stats.byDay[dk] ?? { joins: 0, minutes: 0 };
+        stats.byDay[dk].minutes += minutes;
+        await this.state.storage.put('stats', stats);
+      }
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (path === '/active-rooms') {
+      const counts =
+        (await this.state.storage.get<Record<string, number>>('roomCounts')) ?? {};
+      const rooms = Object.keys(counts).filter((c) => counts[c] > 0);
+      return new Response(JSON.stringify({ rooms }), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (path === '/stats') {
+      const stats = await this.getStats();
+      return new Response(JSON.stringify(stats), {
+        headers: { 'Content-Type': 'application/json' },
+      });
     }
 
     return new Response('Not found', { status: 404 });

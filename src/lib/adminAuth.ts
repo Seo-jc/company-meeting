@@ -91,6 +91,71 @@ export async function markBugAction(
   }
 }
 
+export type PresenceParticipant = {
+  displayName: string;
+  country: string | null;
+  city: string | null;
+  region: string | null;
+  ipMasked: string;
+  connectedAt: number | null;
+  roomCode: string;
+};
+
+export async function fetchPresence(
+  password: string
+): Promise<{ now: number; participants: PresenceParticipant[] } | null> {
+  try {
+    const resp = await fetch(`${SIGNALING_HTTP}/api/presence`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    if (!resp.ok) return null;
+    return (await resp.json()) as {
+      now: number;
+      participants: PresenceParticipant[];
+    };
+  } catch {
+    return null;
+  }
+}
+
+export type UsageStats = {
+  totalJoins: number;
+  totalMinutes: number;
+  byCountry: Record<string, number>;
+  byDay: Record<string, { joins: number; minutes: number }>;
+  byHour: Record<string, number>;
+};
+
+export async function fetchStats(password: string): Promise<UsageStats | null> {
+  try {
+    const resp = await fetch(`${SIGNALING_HTTP}/api/stats`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
+    });
+    if (!resp.ok) return null;
+    return (await resp.json()) as UsageStats;
+  } catch {
+    return null;
+  }
+}
+
+const COUNTRY_NAMES: Record<string, string> = {
+  KR: '🇰🇷 한국',
+  VN: '🇻🇳 베트남',
+  US: '🇺🇸 미국',
+  JP: '🇯🇵 일본',
+  CN: '🇨🇳 중국',
+  UNKNOWN: '❔ 알 수 없음',
+};
+
+export function countryName(code: string | null): string {
+  if (!code) return '❔ 알 수 없음';
+  return COUNTRY_NAMES[code] ?? `🌐 ${code}`;
+}
+
 /**
  * Auto-diagnose a bug report based on patterns. Returns a hint string
  * or undefined if no specific pattern matched.
