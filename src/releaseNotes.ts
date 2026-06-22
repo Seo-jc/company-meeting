@@ -13,6 +13,15 @@ export type ReleaseNote = {
  */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '1.9.0',
+    date: '2026-06-04',
+    highlight: '참가자/화면 공유가 안 보이던 문제 해결',
+    fixed: [
+      '회의 입장 시 일부 기존 참가자가 보이지 않던 문제 (입장 타이밍 경쟁 조건)',
+      '내가 들어가기 전부터 진행 중이던 화면 공유가 나에게 안 보이던 문제',
+    ],
+  },
+  {
     version: '1.8.5',
     date: '2026-06-03',
     highlight: '일부 디자인 변경',

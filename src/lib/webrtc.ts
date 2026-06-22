@@ -83,6 +83,8 @@ export class MeshConnection {
   private screenSenders = new Map<string, RTCRtpSender>();
   private muteStates = new Map<string, boolean>();
   private currentMuted = false;
+  // Active screen-share stream, kept so late-joining peers also receive it.
+  private localScreenStream: MediaStream | null = null;
   private dataChannels = new Map<string, RTCDataChannel>();
   private incomingFiles = new Map<string, IncomingFile>();
   private peerActiveFile = new Map<string, string>(); // peerId -> file id currently being received
@@ -410,6 +412,20 @@ export class MeshConnection {
       pc.addTrack(track, this.localStream);
     }
 
+    // If a screen share is already in progress, send it to this (late-joining) peer too.
+    if (this.localScreenStream) {
+      const screenTrack = this.localScreenStream.getVideoTracks()[0];
+      if (screenTrack) {
+        try {
+          const sender = pc.addTrack(screenTrack, this.localScreenStream);
+          this.screenSenders.set(peerId, sender);
+          console.log('[webrtc] added in-progress screen track to late joiner', peerId);
+        } catch (err) {
+          console.error('[webrtc] addTrack screen (late joiner) failed for', peerId, err);
+        }
+      }
+    }
+
     return pc;
   }
 
@@ -626,8 +642,20 @@ export class MeshConnection {
     const videoTrack = stream.getVideoTracks()[0];
     if (!videoTrack) return;
 
+    // Remember the active screen stream so peers who join later also get it.
+    this.localScreenStream = stream;
+
+    // When the user stops sharing via the OS, clear our reference too.
+    videoTrack.addEventListener('ended', () => {
+      if (this.localScreenStream === stream) {
+        this.localScreenStream = null;
+      }
+    });
+
     console.log('[webrtc] startScreenShare across', this.states.size, 'peers');
     for (const [peerId, state] of this.states) {
+      // Skip peers that somehow already have a screen sender.
+      if (this.screenSenders.has(peerId)) continue;
       try {
         const sender = state.pc.addTrack(videoTrack, stream);
         this.screenSenders.set(peerId, sender);
@@ -640,6 +668,7 @@ export class MeshConnection {
 
   async stopScreenShare() {
     console.log('[webrtc] stopScreenShare');
+    this.localScreenStream = null;
     for (const [peerId, sender] of this.screenSenders) {
       const state = this.states.get(peerId);
       if (!state) continue;

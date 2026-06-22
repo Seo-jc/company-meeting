@@ -23,6 +23,10 @@ type Handler<T extends SignalingMessage['type']> = (
 export class SignalingClient {
   private ws: WebSocket | null = null;
   private handlers = new Map<string, Handler<any>>();
+  // Messages that arrive before a matching handler is registered are queued here
+  // and flushed when the handler appears. Defense against handler-binding races
+  // (e.g. the server's 'peers' list arriving before the mesh registers handlers).
+  private pending: SignalingMessage[] = [];
   private unloadHandler = () => {
     this.sendBye();
     this.ws?.close();
@@ -60,13 +64,30 @@ export class SignalingClient {
           return;
         }
         const handler = this.handlers.get(msg.type);
-        if (handler) handler(msg);
+        if (handler) {
+          handler(msg);
+        } else {
+          // No handler yet — queue and replay once one registers.
+          this.pending.push(msg);
+        }
       };
     });
   }
 
   on<T extends SignalingMessage['type']>(type: T, handler: Handler<T>) {
     this.handlers.set(type, handler);
+    // Flush any queued messages of this type that arrived before binding.
+    if (this.pending.length > 0) {
+      const remaining: SignalingMessage[] = [];
+      for (const msg of this.pending) {
+        if (msg.type === type) {
+          (handler as Handler<any>)(msg);
+        } else {
+          remaining.push(msg);
+        }
+      }
+      this.pending = remaining;
+    }
   }
 
   send(msg: SignalingMessage) {
@@ -92,5 +113,6 @@ export class SignalingClient {
     this.ws?.close();
     this.ws = null;
     this.handlers.clear();
+    this.pending = [];
   }
 }

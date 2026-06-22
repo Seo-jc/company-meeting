@@ -118,26 +118,22 @@ export default function MeetingRoom({
         }
         localStreamRef.current = localStream;
 
+        // Fetch ICE servers (STUN + TURN if available) BEFORE connecting to signaling.
+        // CRITICAL: this must happen before signaling.connect() so there is no async
+        // gap between 'hello' (which makes the server send the existing-peers list)
+        // and the MeshConnection being ready to handle that 'peers' message.
+        // Otherwise the peers list can arrive while no handler is registered and get
+        // dropped — causing some existing participants to never connect (race bug).
+        const iceServers = await getIceServers();
+        if (cancelled) {
+          localStream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+
         const signaling = new SignalingClient();
         signalingRef.current = signaling;
         const generatedId = crypto.randomUUID();
         setMyId(generatedId);
-
-        await signaling.connect(roomCode, generatedId, displayName);
-        if (cancelled) {
-          signaling.close();
-          localStream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-
-        // Fetch ICE servers (STUN + TURN if available) before establishing peer connections.
-        // This is what gives Vietnam/restrictive-network users a working relay.
-        const iceServers = await getIceServers();
-        if (cancelled) {
-          signaling.close();
-          localStream.getTracks().forEach((t) => t.stop());
-          return;
-        }
 
         const mesh = new MeshConnection(
           localStream,
@@ -216,6 +212,17 @@ export default function MeetingRoom({
           iceServers
         );
         meshRef.current = mesh;
+
+        // Connect AFTER the mesh has registered its signaling handlers, so the
+        // server's 'peers' (existing participants) response is never missed.
+        await signaling.connect(roomCode, generatedId, displayName);
+        if (cancelled) {
+          mesh.close();
+          signaling.close();
+          localStream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+
         setStatus('connected');
       } catch (e) {
         console.error('[meeting] connection failed', e);
