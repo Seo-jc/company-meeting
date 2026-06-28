@@ -60,6 +60,10 @@ type PeerState = {
   polite: boolean;
   makingOffer: boolean;
   isSettingRemoteAnswerPending: boolean;
+  // Auto-recovery tracking
+  disconnectTimer: ReturnType<typeof setTimeout> | null;
+  restartAttempts: number;
+  closed: boolean;
 };
 
 type IncomingFile = {
@@ -101,6 +105,18 @@ export class MeshConnection {
   }
 
   private bindSignaling() {
+    // When the signaling socket transparently reconnects (e.g. after an idle
+    // drop on a corporate network), rebuild media paths to every peer via ICE
+    // restart so audio/screen recover without the user having to rejoin.
+    this.signaling.onReconnect(() => {
+      console.log('[webrtc] signaling reconnected → restarting ICE on all peers');
+      for (const peerId of this.states.keys()) {
+        const st = this.states.get(peerId);
+        if (st) st.restartAttempts = 0;
+        this.attemptRestart(peerId);
+      }
+    });
+
     this.signaling.on('peers', (msg) => {
       console.log('[webrtc] received peers list:', msg.peers);
       for (const p of msg.peers) {
@@ -313,6 +329,9 @@ export class MeshConnection {
       polite,
       makingOffer: false,
       isSettingRemoteAnswerPending: false,
+      disconnectTimer: null,
+      restartAttempts: 0,
+      closed: false,
     };
     this.states.set(peerId, state);
     console.log('[webrtc] created pc for', peerId, 'polite:', polite);
@@ -376,12 +395,52 @@ export class MeshConnection {
 
     pc.onconnectionstatechange = () => {
       console.log('[webrtc] connection state', peerId, pc.connectionState);
-      if (pc.connectionState === 'failed') {
-        // Gather diagnostic info before closing the peer.
-        void this.reportConnectionFailure(peerId, pc);
-        this.closePeer(peerId);
-      } else if (pc.connectionState === 'closed') {
-        this.closePeer(peerId);
+      const st = this.states.get(peerId);
+      if (!st) return;
+
+      switch (pc.connectionState) {
+        case 'connected':
+          // Recovered (or first connect). Clear recovery state.
+          if (st.disconnectTimer) {
+            clearTimeout(st.disconnectTimer);
+            st.disconnectTimer = null;
+          }
+          st.restartAttempts = 0;
+          break;
+
+        case 'disconnected':
+          // Often a transient network blip — give it a few seconds to self-heal
+          // before forcing an ICE restart.
+          if (!st.disconnectTimer) {
+            st.disconnectTimer = setTimeout(() => {
+              st.disconnectTimer = null;
+              const cs = st.pc.connectionState;
+              if (cs !== 'connected' && cs !== 'closed') {
+                this.attemptRestart(peerId);
+              }
+            }, 4000);
+          }
+          break;
+
+        case 'failed':
+          // Connection broke — try to recover via ICE restart instead of giving up.
+          void this.reportConnectionFailure(peerId, pc);
+          this.attemptRestart(peerId);
+          break;
+
+        case 'closed':
+          this.closePeer(peerId);
+          break;
+      }
+    };
+
+    // ICE-level monitoring as a second signal (some browsers fire this earlier).
+    pc.oniceconnectionstatechange = () => {
+      const st = this.states.get(peerId);
+      if (!st) return;
+      if (pc.iceConnectionState === 'failed') {
+        console.log('[webrtc] ICE failed for', peerId, '→ attempting restart');
+        this.attemptRestart(peerId);
       }
     };
 
@@ -620,9 +679,71 @@ export class MeshConnection {
     }
   }
 
+  /**
+   * Try to recover a broken/dropped connection without making the user leave
+   * and rejoin. Uses ICE restart (re-gathers network paths). Only the impolite
+   * peer initiates the restart offer to avoid both sides colliding (glare);
+   * the polite peer just waits for the new offer. Gives up after several
+   * attempts and lets the server-driven sync re-establish the peer.
+   */
+  private attemptRestart(peerId: string) {
+    const state = this.states.get(peerId);
+    if (!state || state.closed) return;
+
+    const cs = state.pc.connectionState;
+    if (cs === 'connected') {
+      state.restartAttempts = 0;
+      return;
+    }
+
+    if (state.restartAttempts >= 5) {
+      console.warn('[webrtc] giving up on peer after 5 restart attempts', peerId);
+      this.closePeer(peerId);
+      return;
+    }
+    state.restartAttempts += 1;
+    console.log(
+      '[webrtc] ICE restart attempt',
+      state.restartAttempts,
+      'for',
+      peerId,
+      'polite:',
+      state.polite
+    );
+
+    try {
+      if (!state.polite) {
+        // Impolite peer drives the restart. restartIce() flags the next
+        // negotiation to regenerate ICE credentials → onnegotiationneeded fires.
+        state.pc.restartIce();
+      }
+    } catch (err) {
+      console.error('[webrtc] restartIce failed for', peerId, err);
+    }
+
+    // Re-check later; if still not connected, escalate / retry.
+    if (state.disconnectTimer) clearTimeout(state.disconnectTimer);
+    state.disconnectTimer = setTimeout(() => {
+      state.disconnectTimer = null;
+      const s = this.states.get(peerId);
+      if (!s || s.closed) return;
+      const now = s.pc.connectionState;
+      if (now === 'connected') {
+        s.restartAttempts = 0;
+        return;
+      }
+      this.attemptRestart(peerId);
+    }, 6000);
+  }
+
   private closePeer(peerId: string) {
     const state = this.states.get(peerId);
     if (state) {
+      state.closed = true;
+      if (state.disconnectTimer) {
+        clearTimeout(state.disconnectTimer);
+        state.disconnectTimer = null;
+      }
       state.pc.close();
       this.states.delete(peerId);
       this.remoteStreams.delete(peerId);

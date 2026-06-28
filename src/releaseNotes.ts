@@ -13,6 +13,15 @@ export type ReleaseNote = {
  */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '1.9.1',
+    date: '2026-06-22',
+    highlight: '회의 중 끊김 자동 복구',
+    fixed: [
+      '회의 중 음성/화면 공유가 끊긴 뒤 복구되지 않던 문제 — 이제 나갔다 다시 들어오지 않아도 자동으로 다시 연결됩니다',
+      '네트워크가 잠깐 불안정할 때 연결이 끊어지던 문제 (회사 방화벽의 유휴 연결 차단 대응)',
+    ],
+  },
+  {
     version: '1.9.0',
     date: '2026-06-04',
     highlight: '참가자/화면 공유가 안 보이던 문제 해결',

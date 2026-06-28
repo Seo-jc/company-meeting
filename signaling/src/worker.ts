@@ -599,6 +599,17 @@ export class Room {
       return;
     }
 
+    // Keepalive: client pings periodically to keep the (otherwise idle) WebSocket
+    // alive through NAT/proxy idle timeouts. Reply with pong.
+    if (msg.type === 'ping') {
+      try {
+        ws.send(JSON.stringify({ type: 'pong' }));
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
     if (msg.type === 'hello') {
       console.log('[Room] hello from', msg.peerId, msg.displayName);
       const connectedAt = Date.now();
