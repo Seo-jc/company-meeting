@@ -398,7 +398,7 @@ export default function Lobby({ onJoin }: Props) {
         <div className="lobby-brand">
           <Logo size="lg" showWordmark={false} />
         </div>
-        <h1 className="lobby-product-name">픽미팅</h1>
+        <h1 className="lobby-product-name">PikMeeting</h1>
         <p className="subtitle">사내 음성 회의 + 화면 공유</p>
 
         <div className="field">

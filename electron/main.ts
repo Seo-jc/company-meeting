@@ -27,7 +27,7 @@ function createWindow(): void {
     minWidth: 900,
     minHeight: 600,
     backgroundColor: '#1a1a1a',
-    title: '픽미팅',
+    title: 'PikMeeting',
     icon: join(__dirname, isDev ? '../public/icon.png' : '../dist/icon.png'),
     webPreferences: {
       preload: join(__dirname, 'preload.js'),
@@ -77,7 +77,7 @@ async function cleanupOldUpdateFiles(): Promise<void> {
   const candidates = [
     join(localAppData, `${app.name}-updater`, 'pending'),
     join(localAppData, 'company-meeting-updater', 'pending'),
-    // Legacy (pre-픽미팅 rebrand) and current product-name variants.
+    // Legacy (pre-PikMeeting rebrand) and current product-name variants.
     join(localAppData, 'CompanyMeeting-updater', 'pending'),
     join(localAppData, 'PikMeeting-updater', 'pending'),
   ];

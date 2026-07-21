@@ -23,7 +23,7 @@ export default function Logo({ size = 'md', showWordmark = false }: Props) {
         height={iconSize}
         viewBox="0 0 200 200"
         xmlns="http://www.w3.org/2000/svg"
-        aria-label="서정천 SJC"
+        aria-label="PikMeeting"
       >
         <defs>
           <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
@@ -50,20 +50,22 @@ export default function Logo({ size = 'md', showWordmark = false }: Props) {
           strokeWidth="1.2"
         />
 
-        {/* SJC — Stacked Layers monogram */}
+        {/* Screen Mic — monitor (screen share) with a microphone inside (voice) */}
         <g
           fill="none"
           stroke={`url(#${gradId})`}
-          strokeWidth="15"
+          strokeWidth="12"
           strokeLinecap="round"
           strokeLinejoin="round"
         >
-          {/* S — top */}
-          <path d="M 135 35 C 75 30 70 65 110 75 C 150 85 130 115 70 110" />
-          {/* J — vertical through middle */}
-          <path d="M 105 75 L 105 130 Q 105 150 85 148" />
-          {/* C — wraps around bottom */}
-          <path d="M 160 110 Q 100 105 95 145 Q 95 175 165 175" />
+          <rect x="34" y="50" width="132" height="94" rx="14" />
+          <line x1="78" y1="166" x2="122" y2="166" />
+          <line x1="100" y1="144" x2="100" y2="166" />
+        </g>
+        <g fill="none" stroke={`url(#${gradId})`} strokeLinecap="round">
+          <rect x="88" y="70" width="24" height="36" rx="12" strokeWidth="10" />
+          <path d="M 76 96 A 24 24 0 0 0 124 96" strokeWidth="10" />
+          <line x1="100" y1="116" x2="100" y2="126" strokeWidth="10" />
         </g>
       </svg>
       {showWordmark && (
@@ -80,7 +82,7 @@ export default function Logo({ size = 'md', showWordmark = false }: Props) {
             color: 'transparent',
           }}
         >
-          서정천
+          PikMeeting
         </span>
       )}
     </div>

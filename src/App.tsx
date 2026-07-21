@@ -31,7 +31,7 @@ export default function App() {
         onClick={() => setManualChangelog(true)}
         title="클릭하면 변경 이력을 볼 수 있습니다"
       >
-        v{__APP_VERSION__} <span className="version-sep">·</span> 개발자 서정천
+        v{__APP_VERSION__} <span className="version-sep">·</span> Seo Jeong-Cheon
       </button>
       {screen.name === 'lobby' ? (
         <Lobby

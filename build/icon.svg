@@ -13,9 +13,15 @@
     </linearGradient>
   </defs>
   <rect x="6" y="6" width="188" height="188" rx="34" fill="url(#bg)" stroke="#475569" stroke-width="1.2" />
-  <g fill="none" stroke="url(#silver)" stroke-width="15" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M 135 35 C 75 30 70 65 110 75 C 150 85 130 115 70 110" />
-    <path d="M 105 75 L 105 130 Q 105 150 85 148" />
-    <path d="M 160 110 Q 100 105 95 145 Q 95 175 165 175" />
+  <!-- Screen Mic — monitor (screen share) with a microphone inside (voice) -->
+  <g fill="none" stroke="url(#silver)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="34" y="50" width="132" height="94" rx="14" />
+    <line x1="78" y1="166" x2="122" y2="166" />
+    <line x1="100" y1="144" x2="100" y2="166" />
+  </g>
+  <g fill="none" stroke="url(#silver)" stroke-linecap="round">
+    <rect x="88" y="70" width="24" height="36" rx="12" stroke-width="10" />
+    <path d="M 76 96 A 24 24 0 0 0 124 96" stroke-width="10" />
+    <line x1="100" y1="116" x2="100" y2="126" stroke-width="10" />
   </g>
 </svg>

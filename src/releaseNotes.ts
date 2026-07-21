@@ -13,6 +13,17 @@ export type ReleaseNote = {
  */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '1.11.0',
+    date: '2026-07-21',
+    highlight: '새 로고와 영문 표기 적용',
+    changed: [
+      '새 로고 적용 — 모니터 안에 마이크가 들어간 형태 (화면 공유 + 음성 회의를 함께 상징)',
+      '제품명 표기를 영문으로 통일: 픽미팅 → PikMeeting',
+      '개발자 표기를 영문으로 변경: 서정천 → Seo Jeong-Cheon',
+      '사용자 메뉴얼 표지와 본문도 새 로고·표기로 갱신',
+    ],
+  },
+  {
     version: '1.10.0',
     date: '2026-07-05',
     highlight: '프로그램 이름이 «픽미팅» 으로 바뀌었습니다',

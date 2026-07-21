@@ -37,7 +37,7 @@ nsis:
   allowElevation: false
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: 픽미팅
+  shortcutName: PikMeeting
   runAfterFinish: true
   differentialPackage: true
 
