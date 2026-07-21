@@ -1,5 +1,7 @@
+# NOTE: appId and the GitHub repo below must NOT change — they are the identity
+# used by the auto-updater. Changing them would break updates for existing users.
 appId: com.company.meeting
-productName: CompanyMeeting
+productName: PikMeeting
 copyright: Copyright © 2026
 
 directories:
@@ -35,7 +37,7 @@ nsis:
   allowElevation: false
   createDesktopShortcut: true
   createStartMenuShortcut: true
-  shortcutName: 사내 회의
+  shortcutName: 픽미팅
   runAfterFinish: true
   differentialPackage: true
 

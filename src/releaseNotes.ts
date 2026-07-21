@@ -13,6 +13,17 @@ export type ReleaseNote = {
  */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '1.10.0',
+    date: '2026-07-05',
+    highlight: '프로그램 이름이 «픽미팅» 으로 바뀌었습니다',
+    changed: [
+      '프로그램 이름 변경: 사내 미팅 프로그램 → 픽미팅 (픽PDF·픽스텝과 같은 픽 제품군)',
+      '바탕화면·시작 메뉴 바로가기 이름도 «픽미팅» 으로 변경',
+      '설치 파일 이름 변경: PikMeeting-Setup-x.x.x.exe',
+      '사용자 메뉴얼 내용도 새 이름으로 갱신',
+    ],
+  },
+  {
     version: '1.9.1',
     date: '2026-06-22',
     highlight: '회의 중 끊김 자동 복구',

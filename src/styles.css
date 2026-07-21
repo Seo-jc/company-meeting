@@ -2197,6 +2197,19 @@ input {
   text-align: center;
 }
 
+.lobby-product-name {
+  text-align: center;
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  margin: 0.1rem 0 0.15rem;
+  background: linear-gradient(135deg, #f8fafc 0%, #cbd5e1 35%, #94a3b8 70%, #64748b 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
 .subtitle {
   text-align: center;
   color: #888c95;
