@@ -1,0 +1,985 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>PikMeeting User Manual</title>
+  <style>
+    @page { size: A4; margin: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    html, body {
+      font-family: 'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+      color: #1f2329; line-height: 1.65; font-size: 11pt; background: #fff;
+    }
+    .page {
+      width: 210mm; min-height: 297mm; padding: 22mm 20mm;
+      page-break-after: always; position: relative;
+    }
+    .page:last-child { page-break-after: auto; }
+
+    /* Cover */
+    .cover {
+      display: flex; flex-direction: column; justify-content: center;
+      align-items: center; text-align: center;
+      background: linear-gradient(135deg, #0d1117 0%, #1f2937 100%);
+      color: #fff; gap: 1.5rem;
+    }
+    .cover-logo {
+      width: 140px; height: 140px; box-shadow: 0 8px 32px rgba(148, 163, 184, 0.25);
+      border-radius: 28px; overflow: hidden; display: grid; place-items: center;
+    }
+    .cover-logo svg { width: 100%; height: 100%; display: block; }
+    .cover h1 { font-size: 36pt; font-weight: 800; letter-spacing: -0.02em; margin-top: 1rem; }
+    .cover .subtitle {
+      background: linear-gradient(135deg, #e5e7eb, #94a3b8, #475569);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      font-size: 18pt; font-weight: 600;
+    }
+    .cover .meta { margin-top: 3rem; color: #9aa0a8; font-size: 11pt; }
+    .cover .meta strong { color: #fff; font-weight: 600; }
+
+    /* Headings */
+    h1.section-title {
+      font-size: 22pt; font-weight: 800; color: #0d1117;
+      padding-bottom: 0.6rem; border-bottom: 3px solid #475569;
+      margin-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 14pt; font-weight: 700; color: #0d1117;
+      margin-top: 1.6rem; margin-bottom: 0.6rem;
+    }
+    h3 {
+      font-size: 11.5pt; font-weight: 700; color: #1f2937;
+      margin-top: 1rem; margin-bottom: 0.4rem;
+    }
+    p { margin: 0.4rem 0; }
+    strong { color: #0d1117; font-weight: 700; }
+    ul, ol { padding-left: 1.4rem; margin: 0.4rem 0; }
+    li { margin: 0.25rem 0; }
+
+    /* TOC */
+    .toc { list-style: none; padding-left: 0; }
+    .toc li {
+      display: flex; justify-content: space-between; padding: 0.55rem 0;
+      border-bottom: 1px dotted #d0d4dc;
+    }
+    .toc li .num { color: #475569; font-weight: 700; width: 2.2rem; }
+    .toc li .name { flex: 1; }
+    .toc li .page-num { color: #6b7280; }
+
+    /* Callouts */
+    .note, .warn, .tip {
+      padding: 0.85rem 1rem; border-radius: 6px; margin: 0.8rem 0;
+      font-size: 10.5pt; line-height: 1.55;
+    }
+    .note { background: #eff6ff; border-left: 4px solid #3b82f6; color: #1e3a8a; }
+    .warn { background: #fef2f2; border-left: 4px solid #ef4444; color: #991b1b; }
+    .tip { background: #f1f5f9; border-left: 4px solid #475569; color: #1e293b; }
+    .note strong, .warn strong, .tip strong { color: inherit; }
+
+    /* Steps */
+    .steps { counter-reset: step; list-style: none; padding-left: 0; }
+    .steps > li {
+      counter-increment: step; padding-left: 2.2rem; position: relative;
+      margin: 0.7rem 0; min-height: 1.7rem;
+    }
+    .steps > li::before {
+      content: counter(step); position: absolute; left: 0; top: 0;
+      width: 1.7rem; height: 1.7rem; border-radius: 50%;
+      background: #475569; color: #fff; font-weight: 700;
+      display: grid; place-items: center; font-size: 10pt;
+    }
+
+    /* Tables */
+    table {
+      width: 100%; border-collapse: collapse; margin: 0.6rem 0 1rem;
+      font-size: 10pt;
+    }
+    th, td {
+      border: 1px solid #d0d4dc; padding: 0.5rem 0.7rem;
+      text-align: left; vertical-align: top;
+    }
+    th { background: #f3f4f6; font-weight: 700; color: #0d1117; }
+
+    /* Key labels (button names, UI labels) */
+    .kbd, .btn-label {
+      display: inline-block; padding: 0.05rem 0.45rem; border-radius: 4px;
+      font-family: 'Consolas', 'D2Coding', monospace; font-size: 9.5pt;
+      background: #f3f4f6; border: 1px solid #d0d4dc; color: #1f2937;
+      font-weight: 600;
+    }
+
+    /* Footer */
+    .page-footer {
+      position: absolute; bottom: 12mm; left: 0; right: 0;
+      text-align: center; font-size: 9pt; color: #9aa0a8;
+    }
+    .page-footer .brand { color: #475569; font-weight: 600; }
+
+    .icon-list { list-style: none; padding-left: 0; }
+    .icon-list li { padding: 0.4rem 0; display: flex; gap: 0.8rem; align-items: flex-start; }
+    .icon-list .ico { font-size: 16pt; width: 1.8rem; text-align: center; flex-shrink: 0; }
+    .icon-list .body { flex: 1; }
+    .icon-list .body strong { display: block; margin-bottom: 0.2rem; }
+
+    .faq-q { font-weight: 700; color: #0d1117; margin-top: 1rem; }
+    .faq-q::before { content: 'Q. '; color: #475569; }
+    .faq-a { margin-top: 0.3rem; color: #374151; }
+    .faq-a::before { content: 'A. '; color: #6b7280; font-weight: 700; }
+
+    /* ========================= MOCKUP STYLES ========================= */
+    .mockup-wrap {
+      margin: 1rem 0 1.5rem;
+      display: flex;
+      gap: 1.2rem;
+      align-items: flex-start;
+    }
+    .mockup {
+      background: #15171c;
+      border: 1px solid #2a2e36;
+      border-radius: 10px;
+      padding: 0;
+      color: #e8e8ea;
+      font-family: 'Malgun Gothic', sans-serif;
+      font-size: 9pt;
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+    }
+    .mockup-titlebar {
+      background: #0d1117;
+      padding: 0.35rem 0.7rem;
+      font-size: 8pt;
+      color: #9aa0a8;
+      border-bottom: 1px solid #2a2e36;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .mockup-titlebar::before {
+      content: ''; width: 8px; height: 8px; border-radius: 50%;
+      background: #ef4444;
+      box-shadow: 14px 0 0 #f59e0b, 28px 0 0 #10b981;
+    }
+    .mockup-titlebar-text { margin-left: 56px; }
+    .mockup-body { padding: 0.85rem 0.9rem; }
+
+    .mock-card {
+      background: #1d2026; border: 1px solid #2a2e36;
+      border-radius: 8px; padding: 0.7rem; margin: 0.4rem 0;
+    }
+    .mock-input {
+      background: #14161b; border: 1px solid #353a44; border-radius: 5px;
+      padding: 0.35rem 0.55rem; color: #888c95; font-size: 8.5pt;
+      margin: 0.2rem 0;
+    }
+    .mock-btn-primary {
+      background: #4f7df3; color: white; padding: 0.4rem 0.7rem;
+      border-radius: 5px; font-weight: 600; font-size: 8.5pt;
+      display: inline-block; text-align: center;
+    }
+    .mock-btn {
+      background: #2a2e36; color: #e8e8ea; padding: 0.4rem 0.7rem;
+      border-radius: 5px; border: 1px solid #353a44; font-size: 8.5pt;
+      display: inline-block; text-align: center;
+    }
+    .mock-btn-ghost {
+      background: transparent; color: #9aa0a8; padding: 0.4rem 0.7rem;
+      border: 1px dashed #353a44; border-radius: 5px; font-size: 8.5pt;
+      display: inline-block; text-align: center;
+    }
+    .mock-btn-danger {
+      background: #ef4444; color: white; padding: 0.4rem 0.6rem;
+      border-radius: 50%; font-size: 9pt; width: 28px; height: 28px;
+      display: inline-grid; place-items: center;
+    }
+    .mock-label {
+      color: #a0a4ad; font-size: 8pt; margin: 0.35rem 0 0.15rem;
+      display: block; font-weight: 500;
+    }
+    .mock-row {
+      display: flex; gap: 0.6rem; align-items: center;
+      margin: 0.4rem 0;
+    }
+    .mock-divider {
+      text-align: center; color: #6b7280; font-size: 8pt;
+      margin: 0.5rem 0; position: relative;
+    }
+    .mock-divider::before, .mock-divider::after {
+      content: ''; position: absolute; top: 50%;
+      width: 35%; height: 1px; background: #2a2e36;
+    }
+    .mock-divider::before { left: 0; }
+    .mock-divider::after { right: 0; }
+    .mock-section-title {
+      color: #a0a4ad; font-size: 7.5pt; font-weight: 600;
+      letter-spacing: 0.04em; margin-bottom: 0.2rem;
+    }
+    .mock-tile {
+      background: #1d2026; border: 1px solid #2a2e36;
+      border-radius: 6px; padding: 0.6rem; text-align: center;
+      color: #e8e8ea; font-size: 8pt;
+      width: 100px; height: 64px;
+      display: flex; flex-direction: column; justify-content: center;
+      align-items: center; gap: 0.2rem;
+    }
+    .mock-tile-avatar {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: white; font-weight: 700; font-size: 11pt;
+      display: grid; place-items: center;
+    }
+    .mock-tile.speaking {
+      outline: 2px solid #1abc9c;
+      box-shadow: 0 0 0 4px rgba(26, 188, 156, 0.18);
+    }
+    .mock-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 0.4rem; padding: 0.5rem; background: #15171c;
+      border-radius: 6px; margin: 0.3rem 0;
+    }
+    .mock-control-bar {
+      background: #1a1d23; border-top: 1px solid #2a2e36;
+      padding: 0.5rem; margin-top: 0.5rem;
+      display: flex; gap: 0.8rem; justify-content: center;
+      border-radius: 0 0 6px 6px;
+    }
+    .mock-control-item {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 0.15rem; font-size: 7pt; color: #a0a4ad;
+    }
+    .mock-control-item .ico {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: #2a2e36; display: grid; place-items: center;
+      font-size: 11pt;
+    }
+    .mock-control-item .ico.danger { background: #ef4444; }
+    .mock-banner {
+      padding: 0.5rem 0.6rem; border-radius: 6px; font-size: 8pt;
+      display: flex; gap: 0.5rem; align-items: center;
+      margin: 0.4rem 0;
+    }
+    .mock-banner.info { background: #1f3a4d; color: #cfeaff; border: 1px solid #2a4a5e; }
+    .mock-banner.success { background: #1a2e26; color: #d6fff0; border: 1px solid #1abc9c; }
+    .mock-banner.error { background: #3a1f1f; color: #ffd0d0; border: 1px solid #6b2929; }
+    .mock-chat-msg {
+      background: #2a2e36; padding: 0.35rem 0.5rem;
+      border-radius: 8px; font-size: 8pt;
+      max-width: 75%; margin: 0.25rem 0;
+    }
+    .mock-chat-msg.mine { background: #4f7df3; color: white; margin-left: auto; }
+    .mock-chat-file {
+      background: #2a2e36; padding: 0.45rem; border-radius: 8px;
+      display: flex; gap: 0.4rem; align-items: center;
+      font-size: 8pt; margin: 0.25rem 0;
+    }
+    .mock-progress {
+      height: 3px; background: rgba(255,255,255,0.08); border-radius: 2px;
+      margin-top: 0.2rem; overflow: hidden; flex: 1;
+    }
+    .mock-progress-fill {
+      height: 100%; background: #1abc9c;
+    }
+    .mock-version-badge {
+      background: rgba(148, 163, 184, 0.08); color: #94a3b8;
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      padding: 0.1rem 0.5rem; border-radius: 999px;
+      font-size: 7pt; font-weight: 600;
+      display: inline-block;
+    }
+    .callout-num {
+      display: inline-block; width: 22px; height: 22px;
+      border-radius: 50%; background: #475569; color: white;
+      font-weight: 700; font-size: 10pt; text-align: center;
+      line-height: 22px; margin-right: 0.4rem; vertical-align: middle;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    }
+    .legend {
+      flex: 1; padding-top: 0.5rem;
+    }
+    .legend ol {
+      list-style: none; padding: 0; counter-reset: cnum;
+    }
+    .legend ol li {
+      counter-increment: cnum; padding-left: 2rem;
+      position: relative; margin: 0.5rem 0;
+      font-size: 10pt; line-height: 1.5;
+    }
+    .legend ol li::before {
+      content: counter(cnum); position: absolute; left: 0; top: 1px;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: #475569; color: white;
+      font-weight: 700; font-size: 10pt; text-align: center;
+      line-height: 22px;
+    }
+    .legend strong { color: #0d1117; }
+
+    @media print {
+      .mockup-wrap { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ============ COVER ============ -->
+  <section class="page cover">
+    <div class="cover-logo">
+      <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="manual-silver" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#f8fafc"/>
+            <stop offset="30%" stop-color="#cbd5e1"/>
+            <stop offset="55%" stop-color="#f1f5f9"/>
+            <stop offset="80%" stop-color="#94a3b8"/>
+            <stop offset="100%" stop-color="#475569"/>
+          </linearGradient>
+          <linearGradient id="manual-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#1a1d23"/>
+            <stop offset="100%" stop-color="#0d1117"/>
+          </linearGradient>
+        </defs>
+        <rect x="6" y="6" width="188" height="188" rx="34" fill="url(#manual-bg)" stroke="#475569" stroke-width="1.2"/>
+        <!-- Screen Mic — monitor (screen share) with a microphone inside (voice) -->
+        <g fill="none" stroke="url(#manual-silver)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="34" y="50" width="132" height="94" rx="14"/>
+          <line x1="78" y1="166" x2="122" y2="166"/>
+          <line x1="100" y1="144" x2="100" y2="166"/>
+        </g>
+        <g fill="none" stroke="url(#manual-silver)" stroke-linecap="round">
+          <rect x="88" y="70" width="24" height="36" rx="12" stroke-width="10"/>
+          <path d="M 76 96 A 24 24 0 0 0 124 96" stroke-width="10"/>
+          <line x1="100" y1="116" x2="100" y2="126" stroke-width="10"/>
+        </g>
+      </svg>
+    </div>
+    <h1>PikMeeting</h1>
+    <p class="subtitle">User Manual</p>
+    <div class="meta">
+      <p>Developed by <strong>Seo Jeong-Cheon</strong></p>
+      <p style="margin-top: 1rem; font-size: 9pt; opacity: 0.7;">Please check the bottom-left of the app for your current version.</p>
+    </div>
+  </section>
+
+  <!-- ============ TOC ============ -->
+  <section class="page">
+    <h1 class="section-title">Table of Contents</h1>
+    <ul class="toc">
+      <li><span class="num">1.</span><span class="name">Introduction</span><span class="page-num">3</span></li>
+      <li><span class="num">2.</span><span class="name">Installation &amp; First Run</span><span class="page-num">3</span></li>
+      <li><span class="num">3.</span><span class="name">Lobby Screen (Screen Example)</span><span class="page-num">4</span></li>
+      <li><span class="num">4.</span><span class="name">Creating, Joining &amp; Saving Meetings (Screen Example)</span><span class="page-num">5</span></li>
+      <li><span class="num">5.</span><span class="name">Meeting Screen (Screen Example)</span><span class="page-num">6</span></li>
+      <li><span class="num">6.</span><span class="name">Audio Device Settings (Screen Example)</span><span class="page-num">7</span></li>
+      <li><span class="num">7.</span><span class="name">Chat &amp; File Sharing (Screen Example)</span><span class="page-num">8</span></li>
+      <li><span class="num">8.</span><span class="name">Active Speaker Highlight</span><span class="page-num">9</span></li>
+      <li><span class="num">9.</span><span class="name">Listen-only Mode (Screen Example)</span><span class="page-num">9</span></li>
+      <li><span class="num">10.</span><span class="name">Auto-update (Screen Example)</span><span class="page-num">10</span></li>
+      <li><span class="num">11.</span><span class="name">Troubleshooting</span><span class="page-num">11</span></li>
+      <li><span class="num">12.</span><span class="name">FAQ</span><span class="page-num">12</span></li>
+    </ul>
+
+    <div class="tip" style="margin-top: 2.5rem;">
+      <strong>📖 About This Manual</strong><br>
+      This manual explains each feature step by step alongside screen examples (mockups). The gray boxes are the screens you'll actually see in the app.
+      Next to or below each screen, you'll find numbered explanations.
+    </div>
+
+    <div class="page-footer">
+      PikMeeting · <span class="brand">Developed by Seo Jeong-Cheon</span> · Page 2
+    </div>
+  </section>
+
+  <!-- ============ 1. INTRO + 2. INSTALL ============ -->
+  <section class="page">
+    <h1 class="section-title">1. Introduction</h1>
+    <p><strong>PikMeeting</strong> is a dedicated in-house program that lets company staff hold fast, secure video meetings internally without signing up for any external service.</p>
+
+    <h2>Key Features</h2>
+    <ul class="icon-list">
+      <li><span class="ico">🎤</span><div class="body"><strong>Voice meetings</strong>Multiple participants can talk at the same time over a P2P connection.</div></li>
+      <li><span class="ico">🖥️</span><div class="body"><strong>Screen sharing</strong>Share your entire screen or a specific window of your choice.</div></li>
+      <li><span class="ico">💬</span><div class="body"><strong>Real-time chat &amp; file sharing</strong>Exchange text and files directly over P2P.</div></li>
+      <li><span class="ico">🔊</span><div class="body"><strong>Automatic active speaker highlight</strong>A teal border appears around the tile of whoever is currently speaking.</div></li>
+      <li><span class="ico">🎧</span><div class="body"><strong>Listen-only mode</strong>Join with chat and listening only, even from a PC without a microphone.</div></li>
+      <li><span class="ico">📌</span><div class="body"><strong>Saved meetings &amp; recent meetings</strong>Save meeting rooms you use often for quick, one-click entry.</div></li>
+      <li><span class="ico">🔄</span><div class="body"><strong>Auto-update</strong>When a new version is released, the app downloads and installs it automatically.</div></li>
+    </ul>
+
+    <h2 style="margin-top: 1.4rem;">System Requirements</h2>
+    <table>
+      <tr><th>Operating System</th><td>Windows 10 or later (64-bit)</td></tr>
+      <tr><th>Memory</th><td>2 GB minimum, 4 GB recommended</td></tr>
+      <tr><th>Internet</th><td>Wired or wireless (1 Mbps or faster recommended)</td></tr>
+      <tr><th>Microphone</th><td>Built-in mic or USB/3.5mm external mic (you can still join in listen-only mode without one)</td></tr>
+      <tr><th>Speaker</th><td>Speakers or headphones</td></tr>
+    </table>
+
+    <h1 class="section-title" style="margin-top: 2rem;">2. Installation &amp; First Run</h1>
+    <ol class="steps">
+      <li>Double-click the <span class="kbd">PikMeeting-Setup-X.X.X.exe</span> file you received from the company.</li>
+      <li>If a Windows SmartScreen warning appears, click <strong>"More info"</strong> → <strong>"Run anyway"</strong> in that order.</li>
+      <li>The program installs automatically, with no setup wizard, and launches right away.</li>
+      <li>A <strong>"PikMeeting"</strong> shortcut icon is created on the desktop and in the Start menu.</li>
+    </ol>
+
+    <div class="note">
+      <strong>About the SmartScreen Warning</strong><br>
+      Because this is an in-house program, it does not carry a separate code-signing certificate. It is safe as long as you didn't download it from anywhere other than a company PC.
+    </div>
+
+    <div class="page-footer">
+      PikMeeting · <span class="brand">Developed by Seo Jeong-Cheon</span> · Page 3
+    </div>
+  </section>
+
+  <!-- ============ 3. LOBBY ============ -->
+  <section class="page">
+    <h1 class="section-title">3. Lobby Screen</h1>
+    <p>This is the first screen you see when you launch the program.</p>
+
+    <div class="mockup-wrap">
+      <div class="mockup" style="width: 360px;">
+        <div class="mockup-titlebar"><span class="mockup-titlebar-text">PikMeeting</span></div>
+        <div class="mockup-body" style="display: flex; gap: 0.6rem;">
+          <div style="flex: 1.1; padding-right: 0.2rem;">
+            <div class="mock-card">
+              <div style="text-align: center; margin: 0.5rem 0;">
+                <div style="display: inline-block; width: 36px; height: 36px; border-radius: 8px; background: linear-gradient(135deg, #cbd5e1, #475569);"></div>
+              </div>
+              <div class="mock-label">Name ❶</div>
+              <div class="mock-input">Seo</div>
+              <div class="mock-label">Create New Meeting ❷</div>
+              <div class="mock-input">Fixed code (leave blank for random)</div>
+              <div class="mock-btn-primary" style="display: block; margin: 0.3rem 0;">Create</div>
+              <div class="mock-divider">or</div>
+              <div class="mock-label">Join with Code ❸</div>
+              <div class="mock-input">Meeting code</div>
+              <div class="mock-btn" style="display: block; margin: 0.3rem 0;">Join</div>
+              <div class="mock-btn-ghost" style="display: block; margin: 0.4rem 0 0;">📖 User Manual ❹</div>
+            </div>
+          </div>
+          <div style="flex: 0.9;">
+            <div class="mock-card">
+              <div style="display: flex; justify-content: space-between;">
+                <div style="font-weight: 600; font-size: 8.5pt;">Recent Meetings ❺</div>
+              </div>
+              <div style="background: #15171c; padding: 0.3rem; border-radius: 5px; margin-top: 0.3rem; font-size: 7.5pt; display: flex; gap: 0.2rem; align-items: center;">
+                <div style="flex: 1;">QA Sync<br><span style="color:#6b7280">QASYNC</span></div>
+                <div style="color:#1abc9c">📌</div>
+                <div style="color:#6b7280">✕</div>
+              </div>
+            </div>
+            <div class="mock-card">
+              <div style="display: flex; justify-content: space-between;">
+                <div style="font-weight: 600; font-size: 8.5pt;">Saved Meetings ❻</div>
+                <div style="font-size: 7pt; color: #1abc9c;">+ Add</div>
+              </div>
+              <div style="background: #15171c; padding: 0.3rem; border-radius: 5px; margin-top: 0.3rem; font-size: 7.5pt;">
+                <div style="display: flex; align-items: center; gap: 0.3rem;">
+                  <span style="color: #1abc9c;">●</span>
+                  <div style="flex: 1;">HQ/VINA Weekly<br><span style="color:#6b7280">WEEKLY</span></div>
+                  <div style="color: #1abc9c; font-weight: 700;">2 people</div>
+                </div>
+              </div>
+            </div>
+            <div class="mock-card" style="padding: 0.4rem 0.7rem;">
+              <div style="font-weight: 600; font-size: 8.5pt;">Audio Device ❼</div>
+              <div style="font-size: 7.5pt; color: #6b7280; margin-top: 0.2rem;">🎤 Mic / 🔊 Speaker</div>
+            </div>
+          </div>
+        </div>
+        <div style="padding: 0.3rem 0.7rem; border-top: 1px solid #2a2e36;">
+          <span class="mock-version-badge">v1.7.x · Seo Jeong-Cheon ❽</span>
+        </div>
+      </div>
+      <div class="legend">
+        <ol>
+          <li><strong>Name field</strong> — The name shown to other participants in the meeting. The last value entered is saved automatically.</li>
+          <li><strong>Create New Meeting</strong> — Choose your own code, or leave it blank to create a meeting with a random code.</li>
+          <li><strong>Join with Code</strong> — Enter a meeting code someone else gave you to join.</li>
+          <li><strong>User Manual</strong> — Reopens the document you're reading right now.</li>
+          <li><strong>Recent Meetings</strong> — Automatically records meeting rooms you've recently entered (up to 10).</li>
+          <li><strong>Saved Meetings</strong> — Explicitly saved meetings you use often. A green dot means the room currently has participants in it.</li>
+          <li><strong>Audio Device</strong> — Choose which microphone/speaker to use.</li>
+          <li><strong>Version badge</strong> — Click it to view the change history.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="page-footer">
+      PikMeeting · <span class="brand">Developed by Seo Jeong-Cheon</span> · Page 4
+    </div>
+  </section>
+
+  <!-- ============ 4. JOIN MEETING ============ -->
+  <section class="page">
+    <h1 class="section-title">4. Creating, Joining &amp; Saving Meetings</h1>
+
+    <h2>Creating a New Meeting</h2>
+    <ol class="steps">
+      <li>Make sure your name has been entered.</li>
+      <li>Under "Create New Meeting," enter a code or leave it blank. If left blank, a random 6-character code is generated automatically.</li>
+      <li><strong>Code rules</strong>: uppercase letters + numbers, 4-10 characters (e.g. <span class="kbd">WEEKLY</span>, <span class="kbd">DAILY2</span>, <span class="kbd">ABC123</span>)</li>
+      <li>Click the <span class="mock-btn-primary" style="font-size: 9pt;">Create</span> button → you enter the meeting room immediately.</li>
+      <li>Share the meeting code with other participants via messenger or email.</li>
+    </ol>
+
+    <h2>Joining with a Code</h2>
+    <ol class="steps">
+      <li>Enter the meeting code you received from the host into the "Join with Code" field.</li>
+      <li>Click the <span class="mock-btn" style="font-size: 9pt;">Join</span> button → you enter the meeting room immediately.</li>
+    </ol>
+
+    <h2>Recent Meetings vs. Saved Meetings</h2>
+    <table>
+      <tr>
+        <th style="width: 25%;">List</th>
+        <th>Automatic vs. Manual</th>
+        <th>Information Displayed</th>
+      </tr>
+      <tr>
+        <td><strong>Recent Meetings</strong></td>
+        <td>Automatic (recorded when you enter a meeting)</td>
+        <td>Name (if any) + code; participant count not shown</td>
+      </tr>
+      <tr>
+        <td><strong>Saved Meetings</strong></td>
+        <td>Manual (via + Add or clicking 📌)</td>
+        <td>Name + code, with <strong>current participant count shown in real time</strong></td>
+      </tr>
+    </table>
+
+    <div class="tip">
+      <strong>💡 Usage Example</strong><br>
+      Recurring meetings (weekly meetings, daily stand-ups, etc.) → add them to <strong>Saved Meetings</strong> for one-click entry.<br>
+      One-off meetings → automatically recorded in <strong>Recent Meetings</strong>, making it easy to rejoin the same day.
+    </div>
+
+    <h3>Promoting a Recent Meeting to Saved</h3>
+    <p>Click the <strong>📌</strong> button on the right side of a recent meeting card to move it to the Saved Meetings list. It's automatically removed from Recent Meetings.</p>
+
+    <h3>Meeting Room Persistence</h3>
+    <p>Even after all participants leave, the meeting code remains active. Entering the same code again takes you back into the same meeting room.</p>
+
+    <div class="page-footer">
+      PikMeeting · <span class="brand">Developed by Seo Jeong-Cheon</span> · Page 5
+    </div>
+  </section>
+
+  <!-- ============ 5. MEETING SCREEN ============ -->
+  <section class="page">
+    <h1 class="section-title">5. Meeting Screen</h1>
+
+    <div class="mockup-wrap">
+      <div class="mockup" style="width: 400px;">
+        <div class="mockup-titlebar"><span class="mockup-titlebar-text">PikMeeting</span></div>
+        <div style="display: flex; justify-content: space-between; padding: 0.45rem 0.7rem; border-bottom: 1px solid #2a2e36; background: #1a1d23; font-size: 8pt;">
+          <div style="display: flex; gap: 0.5rem; align-items: center;">
+            <span>⏱ 00:32</span>
+            <span style="color: #6b7280;">·</span>
+            <span>HQ/VINA Weekly ❶</span>
+          </div>
+          <div style="display: flex; gap: 0.4rem; align-items: center;">
+            <div style="background: #2a2e36; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 7.5pt; color: #1abc9c; font-weight: 700;">WEEKLY 📋 ❷</div>
+            <span>3 participants ❸</span>
+          </div>
+        </div>
+        <div class="mock-grid" style="grid-template-columns: repeat(2, 1fr);">
+          <div class="mock-tile speaking">
+            <div class="mock-tile-avatar">S</div>
+            <div>Seo (Me) ❹</div>
+          </div>
+          <div class="mock-tile">
+            <div class="mock-tile-avatar" style="background: linear-gradient(135deg, #f97316, #dc2626);">K</div>
+            <div>Kim</div>
+          </div>
+          <div class="mock-tile">
+            <div class="mock-tile-avatar" style="background: linear-gradient(135deg, #10b981, #047857);">P</div>
+            <div>Park <span style="font-size: 6.5pt; background: #ef6868; color: white; padding: 0.05rem 0.25rem; border-radius: 3px;">Muted</span></div>
+          </div>
+          <div class="mock-tile" style="background: #0d1117; border-color: #1abc9c;">
+            <div style="font-size: 14pt;">🖥️</div>
+            <div style="font-size: 7pt; color: #1abc9c;">Screen sharing</div>
+          </div>
+        </div>
+        <div class="mock-control-bar">
+          <div class="mock-control-item"><div class="ico">🎤</div><span>Mute ❺</span></div>
+          <div class="mock-control-item"><div class="ico">🖥️</div><span>Screen share ❻</span></div>
+          <div class="mock-control-item"><div class="ico">💬</div><span>Chat ❼</span></div>
+          <div class="mock-control-item"><div class="ico danger">📞</div><span>Leave ❽</span></div>
+        </div>
+      </div>
+      <div class="legend">
+        <ol>
+          <li><strong>Elapsed time + meeting title</strong> — The time elapsed since the meeting started, and the meeting name.</li>
+          <li><strong>Meeting code + copy button</strong> — Click to copy the code to your clipboard.</li>
+          <li><strong>Participant count</strong> — The number of people currently in the meeting room.</li>
+          <li><strong>Active speaker highlight (teal border)</strong> — Shown around whichever participant is currently speaking.</li>
+          <li><strong>Mute button</strong> — Turns your own microphone ON/OFF. Gray = normal, red = muted.</li>
+          <li><strong>Screen sharing</strong> — Share your entire screen or a specific window.</li>
+          <li><strong>Open chat</strong> — Opens the chat panel on the right. A number badge appears if there are unread messages.</li>
+          <li><strong>Leave</strong> — Ends the meeting and returns you to the lobby.</li>
+        </ol>
+      </div>
+    </div>
+
+    <h3>Enlarging a Participant Tile + Side Thumbnails</h3>
+    <p><strong>Double-click</strong> a participant's tile to enlarge it. Double-click again to return it to normal.</p>
+    <p>While enlarged, <strong>the remaining participant tiles line up vertically along the right side</strong> of the screen so they don't cover the main view.</p>
+
+    <h3>Zooming the Shared Screen</h3>
+    <p>Once a shared screen or video is enlarged, you can zoom further using these methods:</p>
+    <ul>
+      <li><strong>Scroll the mouse wheel up/down</strong> — Smooth zoom in/out</li>
+      <li><strong>Bottom-right controls</strong> — <span class="kbd">−</span> zoom out, <span class="kbd">100%</span> original size, <span class="kbd">+</span> zoom in</li>
+      <li><strong>Drag the mouse while zoomed in</strong> — Pan to move the visible area</li>
+      <li>Zoom up to 5x. Useful for taking a close look at part of a die-casting drawing or report.</li>
+    </ul>
+
+    <div class="page-footer">
+      PikMeeting · <span class="brand">Developed by Seo Jeong-Cheon</span> · Page 6
+    </div>
+  </section>
+
+  <!-- ============ 6. AUDIO SETTINGS ============ -->
+  <section class="page">
+    <h1 class="section-title">6. Audio Device Settings</h1>
+    <p>In an environment with multiple microphones or speakers connected, you can choose which device to use.</p>
+
+    <div class="mockup-wrap">
+      <div class="mockup" style="width: 280px;">
+        <div class="mockup-titlebar"><span class="mockup-titlebar-text">Audio Settings</span></div>
+        <div class="mockup-body">
+          <div class="mock-label">🎤 Microphone ❶</div>
+          <div class="mock-input">USB Headset Mic</div>
+          <div class="mock-label" style="margin-top: 0.6rem;">🔊 Speaker ❷</div>
+          <div class="mock-input">Realtek Audio Speaker</div>
+          <div style="margin-top: 0.8rem; padding-top: 0.5rem; border-top: 1px solid #2a2e36; font-size: 7.5pt; color: #6b7280; text-align: center;">
+            Your selection is saved automatically
+          </div>
+        </div>
+      </div>
+      <div class="legend">
+        <ol>
+          <li><strong>Microphone selection</strong> — A list of all available input devices. You can switch instantly, even during a meeting.</li>
+          <li><strong>Speaker selection</strong> — Choose which device to use for hearing other participants.</li>
+        </ol>
+        <div class="tip" style="margin-top: 1rem;">
+          <strong>Hot-swap support</strong><br>
+          You can change your microphone or speaker mid-meeting without losing the connection — the change takes effect instantly.
+        </div>
+      </div>
+    </div>
+
+    <h3>Opening Settings</h3>
+    <ul>
+      <li><strong>Meeting screen</strong>: Click the <strong>▲ arrow</strong> above the 🎤 button at the bottom → a popover appears.</li>
+      <li><strong>Lobby screen</strong>: Change it directly in the "Audio Device" panel at the bottom right.</li>
+    </ul>
+
+    <div class="page-footer">
+      PikMeeting · <span class="brand">Developed by Seo Jeong-Cheon</span> · Page 7
+    </div>
+  </section>
+
+  <!-- ============ 7. CHAT + FILE ============ -->
+  <section class="page">
+    <h1 class="section-title">7. Chat &amp; File Sharing</h1>
+    <p>Click the <strong>💬 Chat</strong> button at the bottom of the meeting screen to open the chat panel on the right.</p>
+
+    <div class="mockup-wrap">
+      <div class="mockup" style="width: 280px;">
+        <div class="mockup-titlebar"><span class="mockup-titlebar-text">Chat</span></div>
+        <div class="mockup-body" style="display: flex; flex-direction: column; gap: 0.3rem; min-height: 320px;">
+          <div style="font-size: 7pt; color: #6b7280;">Kim · 2:15 PM</div>
+          <div class="mock-chat-msg">I'll send the file over</div>
+          <div class="mock-chat-file" style="margin-right: auto;">
+            <div style="font-size: 12pt;">📎</div>
+            <div style="flex: 1;">
+              <div style="font-weight: 600;">design_drawing_v3.dwg</div>
+              <div style="color: #9aa0a8; font-size: 7pt;">2.3 MB · Received</div>
+            </div>
+            <div style="background: #1abc9c; color: #0f1a18; font-weight: 700; padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 7pt;">Save ❷</div>
+          </div>
+          <div style="font-size: 7pt; color: #6b7280; text-align: right; margin-top: 0.3rem;">Me · 2:16 PM</div>
+          <div class="mock-chat-msg mine">Got it, thanks</div>
+          <div class="mock-chat-file" style="margin-left: auto; background: #1f3a4d;">
+            <div style="font-size: 12pt;">📎</div>
+            <div style="flex: 1;">
+              <div style="font-weight: 600;">review_comments.pdf</div>
+              <div style="color: #cfeaff; font-size: 7pt;">156 KB · Sending 67%</div>
+              <div class="mock-progress" style="margin-top: 0.2rem;">
+                <div class="mock-progress-fill" style="width: 67%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="background: #14161b; border-top: 1px solid #2a2e36; padding: 0.4rem; display: flex; gap: 0.3rem;">
+          <div style="width: 26px; height: 26px; border-radius: 5px; background: #1d2026; border: 1px solid #353a44; display: grid; place-items: center; font-size: 9pt;">📎 ❶</div>
+          <div style="flex: 1; background: #1d2026; border: 1px solid #353a44; border-radius: 5px; padding: 0.3rem 0.5rem; font-size: 7.5pt; color: #6b7280;">Type a message</div>
+          <div style="background: #4f7df3; color: white; padding: 0.3rem 0.6rem; border-radius: 5px; font-size: 8pt; font-weight: 600;">Send</div>
+        </div>
+      </div>
+      <div class="legend">
+        <ol>
+          <li><strong>Attach file (📎)</strong> — Click to open the file picker. You can also <strong>drag and drop</strong> a file directly onto the chat window.</li>
+          <li><strong>Save button</strong> — Downloads a received file to your PC. It's saved to the system's Downloads folder.</li>
+        </ol>
+        <div class="note" style="margin-top: 1rem;">
+          <strong>File Transfer Method</strong><br>
+          All files are transferred directly <strong>P2P (between participants' PCs)</strong> and are never stored on a server.<br>
+          Maximum size: <strong>200 MB</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="tip">
+      <strong>Usage Example</strong><br>
+      Instantly share presentation materials (.pdf, .pptx), design drawings (.dwg), Excel sheets, or image files during a meeting. It's faster than screen sharing, and any file you save stays on your PC after the meeting ends.
+    </div>
+
+    <div class="page-footer">
+      PikMeeting · <span class="brand">Developed by Seo Jeong-Cheon</span> · Page 8
+    </div>
+  </section>
+
+  <!-- ============ 8. ACTIVE SPEAKER + 9. LISTEN-ONLY ============ -->
+  <section class="page">
+    <h1 class="section-title">8. Active Speaker Highlight</h1>
+    <p>In the meeting screen, a <strong>teal pulsing border</strong> is automatically shown around the tile of whoever is currently speaking.</p>
+
+    <div class="mockup-wrap">
+      <div class="mock-grid" style="grid-template-columns: repeat(2, 1fr); width: 240px;">
+        <div class="mock-tile speaking">
+          <div class="mock-tile-avatar">S</div>
+          <div>Seo</div>
+          <div style="font-size: 6.5pt; color: #1abc9c; margin-top: 0.1rem;">🔊 Speaking</div>
+        </div>
+        <div class="mock-tile">
+          <div class="mock-tile-avatar" style="background: linear-gradient(135deg, #f97316, #dc2626);">K</div>
+          <div>Kim</div>
+        </div>
+      </div>
+      <div class="legend">
+        <ul>
+          <li>Voice level is detected automatically and displayed (no configuration needed).</li>
+          <li><strong>Muted participants</strong> are not highlighted.</li>
+          <li>If you yourself are in <strong>listen-only mode</strong>, you are not highlighted (no microphone).</li>
+          <li>If several people speak at once, multiple tiles are highlighted at the same time.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h1 class="section-title" style="margin-top: 2rem;">9. Listen-only Mode</h1>
+    <p>This mode lets you join a meeting even from a PC with no microphone, or one that isn't usable.</p>
+
+    <div class="mockup-wrap">
+      <div class="mockup" style="width: 280px;">
+        <div class="mockup-titlebar"><span class="mockup-titlebar-text">Microphone Error</span></div>
+        <div class="mockup-body" style="text-align: center; padding: 1.2rem 0.9rem;">
+          <div style="font-weight: 700; color: #e8e8ea; margin-bottom: 0.5rem;">Microphone not found</div>
+          <div style="font-size: 7.5pt; color: #ef6868; line-height: 1.5;">
+            Please check whether a microphone is connected to your PC, and whether the app is allowed microphone access in Windows settings.
+          </div>
+          <div style="margin-top: 0.7rem; display: flex; flex-direction: column; gap: 0.3rem;">
+            <div class="mock-btn-primary" style="font-size: 7.5pt;">Open Windows Microphone Settings</div>
+            <div class="mock-btn-primary" style="font-size: 7.5pt;">Try Again</div>
+            <div style="background: #1f3a4d; color: #7fd0ff; border: 1px solid #2a4a5e; padding: 0.4rem; border-radius: 5px; font-size: 7.5pt; font-weight: 600;">🎧 Join without a mic (listen/chat only) ❶</div>
+            <div class="mock-btn" style="font-size: 7.5pt;">Back to Lobby</div>
+          </div>
+        </div>
+      </div>
+      <div class="legend">
+        <ol>
+          <li>Click <strong>Join without a mic</strong> → you enter the meeting in listen-only mode.</li>
+        </ol>
+        <h3 style="margin-top: 0.8rem;">What You Can Do in Listen-only Mode</h3>
+        <ul>
+          <li>✅ Hear other participants</li>
+          <li>✅ View screen shares</li>
+          <li>✅ Share your own screen</li>
+          <li>✅ Send and receive chat and files</li>
+          <li>❌ Send your own voice (no microphone)</li>
+        </ul>
+        <p style="font-size: 9pt; color: #6b7280; margin-top: 0.6rem;">A teal banner is shown at the top of the meeting room so your listen-only status is always clear.</p>
+      </div>
+    </div>
+
+    <div class="page-footer">
+      PikMeeting · <span class="brand">Developed by Seo Jeong-Cheon</span> · Page 9
+    </div>
+  </section>
+
+  <!-- ============ 10. AUTO UPDATE ============ -->
+  <section class="page">
+    <h1 class="section-title">10. Auto-update</h1>
+    <p>When a new version is released, the app downloads and applies it automatically. No action is required from you.</p>
+
+    <h2>Update Progress Screens</h2>
+    <div style="display: flex; flex-direction: column; gap: 0.6rem; margin: 0.8rem 0;">
+      <div class="mockup" style="padding: 0;">
+        <div class="mockup-body">
+          <div class="mock-banner info" style="font-size: 9pt;">
+            <span>🔔</span>
+            <div>
+              <strong>New version v1.7.x found</strong><br>
+              <span style="font-size: 7.5pt;">Starting the download in the background…</span>
+            </div>
+          </div>
+          <div class="mock-banner info" style="font-size: 9pt;">
+            <span>⬇️</span>
+            <div style="flex: 1;">
+              <strong>Downloading 67%</strong>
+              <div class="mock-progress" style="margin-top: 0.2rem;">
+                <div class="mock-progress-fill" style="width: 67%; background: #7fd0ff;"></div>
+              </div>
+            </div>
+          </div>
+          <div class="mock-banner success" style="font-size: 9pt;">
+            <span>✨</span>
+            <div style="flex: 1;">
+              <strong>Update ready · v1.7.x</strong><br>
+              <span style="font-size: 7.5pt;">If you apply it now, the app will restart immediately on the new version.</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 0.2rem;">
+              <div style="background: #1abc9c; color: #0f1a18; padding: 0.25rem 0.5rem; border-radius: 5px; font-size: 7.5pt; font-weight: 700;">Apply Now</div>
+              <div style="background: transparent; color: #d6fff0; padding: 0.25rem 0.5rem; font-size: 7.5pt;">Later</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h3>Step-by-step Explanation</h3>
+    <ol class="steps">
+      <li>App launches → checks for a new version automatically in the background after 3 seconds.</li>
+      <li>If a new version is found, download starts automatically (typically a 5-10MB differential update).</li>
+      <li>Once the download finishes, a teal "Ready" banner is displayed.</li>
+      <li>Click <strong>"Apply Now"</strong> → the app restarts immediately and applies the new version.</li>
+      <li>Choose <strong>"Later"</strong> → the update is applied automatically the next time you close the app.</li>
+    </ol>
+
+    <div class="tip">
+      <strong>Seamless updates with no installer wizard, starting from v1.7.6</strong><br>
+      Previously, clicking "Apply Now" would launch an NSIS installer wizard that required clicking "Next" several times.
+      From v1.7.6 onward, <strong>the update installs silently with no wizard, and the new version launches automatically</strong>.
+      The hassle of having to click through an installer every time is now gone.
+    </div>
+
+    <div class="tip">
+      <strong>Your settings are preserved</strong><br>
+      Even after an update is applied, your name, saved meetings, recent meetings, and audio device selection all remain unchanged.
+    </div>
+
+    <h2>Checking the Current Version</h2>
+    <p>The current version is shown on the silver badge at the bottom left.</p>
+    <p>Example: <span class="mock-version-badge" style="font-size: 8pt;">v1.7.x · Seo Jeong-Cheon</span></p>
+    <p><strong>Click</strong> this badge to view the full change history.</p>
+
+    <div class="page-footer">
+      PikMeeting · <span class="brand">Developed by Seo Jeong-Cheon</span> · Page 10
+    </div>
+  </section>
+
+  <!-- ============ 11. TROUBLESHOOTING ============ -->
+  <section class="page">
+    <h1 class="section-title">11. Troubleshooting</h1>
+
+    <h3>"Microphone not found" message appears</h3>
+    <p>The most common cause is that <strong>Windows microphone permission is blocked</strong>.</p>
+    <ol class="steps">
+      <li>Click the <strong>"Open Windows Microphone Settings"</strong> button on the error screen.</li>
+      <li>Check that all of the following are turned <strong>on</strong>:
+        <ul>
+          <li>Microphone access</li>
+          <li>Let apps access your microphone</li>
+          <li><strong>Let desktop apps access your microphone</strong> ← often turned off</li>
+        </ul>
+      </li>
+      <li>After adjusting the settings, return to the app and click <strong>"Try Again"</strong>.</li>
+    </ol>
+
+    <h3>"Microphone is in use by another program" message appears</h3>
+    <p>Another video conferencing app (Zoom, Teams, Discord, etc.) may be holding the microphone. Please close the other app and try again.</p>
+
+    <h3>I can't hear the other participant's audio</h3>
+    <ul>
+      <li>Check that the correct speaker is selected in audio settings.</li>
+      <li>Check that the Windows system volume is not muted.</li>
+      <li>Check the other participant's mute status (red 🔇 icon).</li>
+    </ul>
+
+    <h3>Screen sharing won't start</h3>
+    <p>Windows screen-capture permission is required. If Windows shows a permission prompt when you click screen share, please <strong>allow</strong> it.</p>
+
+    <h3>File transfer stalls</h3>
+    <ul>
+      <li>Check whether the file exceeds 200 MB (200 MB maximum).</li>
+      <li>Check whether the recipient has left the meeting.</li>
+      <li>Transfers may slow down if the network connection is unstable.</li>
+    </ul>
+
+    <h3>The meeting connection keeps dropping</h3>
+    <ul>
+      <li>A wired connection is more stable than wireless.</li>
+      <li>A VPN or company firewall policy may be blocking WebRTC traffic.</li>
+      <li>The more participants there are (6 or more), the more internet bandwidth you'll need.</li>
+    </ul>
+
+    <div class="page-footer">
+      PikMeeting · <span class="brand">Developed by Seo Jeong-Cheon</span> · Page 11
+    </div>
+  </section>
+
+  <!-- ============ 12. FAQ ============ -->
+  <section class="page">
+    <h1 class="section-title">12. FAQ</h1>
+
+    <p class="faq-q">How many people can be in a meeting at once?</p>
+    <p class="faq-a">Technically, up to about 6-8 people works without issues. Since it's P2P, the more participants there are, the more network bandwidth each person needs.</p>
+
+    <p class="faq-q">Is the meeting recorded or stored on a server?</p>
+    <p class="faq-a">No. All communication travels P2P, directly between participants' PCs. The signaling server merely helps set up the connection and never receives the audio, video, or chat content. The same applies to file transfers.</p>
+
+    <p class="faq-q">Can it be used outside the company?</p>
+    <p class="faq-a">Yes, it can be used anywhere with an internet connection. You just need to know the meeting code.</p>
+
+    <p class="faq-q">If a meeting code is exposed, can anyone join?</p>
+    <p class="faq-a">Yes, anyone who knows the code can join. Please be careful not to let the code leak for sensitive meetings. Using a different code for each meeting is also a good practice.</p>
+
+    <p class="faq-q">Is there no video (camera) feature?</p>
+    <p class="faq-a">Currently only audio and screen sharing are supported. Camera support may be added in a future update.</p>
+
+    <p class="faq-q">What happens if I send a file but the recipient isn't in the meeting?</p>
+    <p class="faq-a">Because it's P2P, the file is only delivered to participants currently in the meeting. Anyone who joins later won't receive it. For important files, send them after the meeting has started, or share them beforehand via messenger.</p>
+
+    <p class="faq-q">The app closes unexpectedly, or the meeting drops</p>
+    <p class="faq-a">Please check your internet connection first. If the same problem keeps happening, try closing the app completely and launching it again. If that still doesn't fix it, please contact the developer.</p>
+
+    <p class="faq-q">How do I move to a different PC?</p>
+    <p class="faq-a">Uninstall the program from Control Panel on the current PC, then run the installer on the new PC. Note that your saved meeting list and name are not carried over, so you'll need to set them up again.</p>
+
+    <p class="faq-q">Auto-update doesn't seem to be working</p>
+    <p class="faq-a">The check starts 3 seconds after the app launches. Make sure you're connected to the internet, and check the current version shown at the bottom left. If the latest version is newer, try restarting the app once more.</p>
+
+    <p class="faq-q">I want to clear the recent meetings list</p>
+    <p class="faq-a">Click the ✕ button on the right of each card to remove just that meeting from the list. (The actual meeting room itself is unaffected.)</p>
+
+    <div class="warn" style="margin-top: 2rem;">
+      <strong>If the problem isn't resolved</strong><br>
+      If a problem isn't fixed by the guidance above, please contact the developer (<strong>Seo Jeong-Cheon</strong>) with the following information.
+      <ul style="margin-top: 0.5rem;">
+        <li>What happened (a screenshot, if possible)</li>
+        <li>Your PC's operating system (e.g. Windows 11)</li>
+        <li>The app version you're currently using (shown at the bottom left)</li>
+        <li>What you were doing right before the problem occurred</li>
+      </ul>
+    </div>
+
+    <div class="page-footer">
+      PikMeeting · <span class="brand">Developed by Seo Jeong-Cheon</span> · Page 12
+    </div>
+  </section>
+
+</body>
+</html>

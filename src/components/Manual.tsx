@@ -1,12 +1,37 @@
 import { useEffect, useRef, useState } from 'react';
+import { useT, useLang } from '../i18n';
 
 type Props = {
   onClose: () => void;
 };
 
+const STR = {
+  ko: {
+    title: '📖 사용자 메뉴얼',
+    printBtn: '🖨️ PDF 저장 / 인쇄',
+    printTitle: '시스템 인쇄 대화상자를 열어 PDF로 저장하거나 인쇄할 수 있습니다',
+    closeTitle: '닫기 (Esc)',
+    closeLabel: '닫기',
+    iframeTitle: '사용자 메뉴얼',
+    loading: '메뉴얼을 불러오는 중...',
+  },
+  en: {
+    title: '📖 User Manual',
+    printBtn: '🖨️ Save as PDF / Print',
+    printTitle: 'Opens the system print dialog to save as PDF or print',
+    closeTitle: 'Close (Esc)',
+    closeLabel: 'Close',
+    iframeTitle: 'User Manual',
+    loading: 'Loading manual...',
+  },
+};
+
 export default function Manual({ onClose }: Props) {
+  const t = useT(STR);
+  const { lang } = useLang();
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [loading, setLoading] = useState(true);
+  const manualSrc = lang === 'en' ? './manual.en.html' : './manual.html';
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -28,22 +53,22 @@ export default function Manual({ onClose }: Props) {
     <div className="manual-backdrop" onClick={onClose} role="dialog" aria-modal="true">
       <div className="manual-modal" onClick={(e) => e.stopPropagation()}>
         <header className="manual-header">
-          <h2>📖 사용자 메뉴얼</h2>
+          <h2>{t.title}</h2>
           <div className="manual-actions">
             <button
               type="button"
               className="btn btn-small"
               onClick={handlePrint}
-              title="시스템 인쇄 대화상자를 열어 PDF로 저장하거나 인쇄할 수 있습니다"
+              title={t.printTitle}
             >
-              🖨️ PDF 저장 / 인쇄
+              {t.printBtn}
             </button>
             <button
               type="button"
               className="manual-close"
               onClick={onClose}
-              title="닫기 (Esc)"
-              aria-label="닫기"
+              title={t.closeTitle}
+              aria-label={t.closeLabel}
             >
               ✕
             </button>
@@ -51,13 +76,13 @@ export default function Manual({ onClose }: Props) {
         </header>
         <div className="manual-body">
           {loading && (
-            <div className="manual-loading">메뉴얼을 불러오는 중...</div>
+            <div className="manual-loading">{t.loading}</div>
           )}
           <iframe
             ref={iframeRef}
-            src="./manual.html"
+            src={manualSrc}
             className="manual-iframe"
-            title="사용자 메뉴얼"
+            title={t.iframeTitle}
             onLoad={() => setLoading(false)}
           />
         </div>

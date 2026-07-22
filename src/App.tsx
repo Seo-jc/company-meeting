@@ -3,6 +3,12 @@ import Lobby from './components/Lobby';
 import MeetingRoom from './components/MeetingRoom';
 import UpdateNotification from './components/UpdateNotification';
 import WhatsNew from './components/WhatsNew';
+import { useT } from './i18n';
+
+const STR = {
+  ko: { changelogTip: '클릭하면 변경 이력을 볼 수 있습니다' },
+  en: { changelogTip: 'Click to view the changelog' },
+};
 
 type Screen =
   | { name: 'lobby' }
@@ -16,6 +22,7 @@ type Screen =
 export default function App() {
   const [screen, setScreen] = useState<Screen>({ name: 'lobby' });
   const [manualChangelog, setManualChangelog] = useState(false);
+  const t = useT(STR);
 
   return (
     <div className="app-root">
@@ -29,7 +36,7 @@ export default function App() {
         type="button"
         className="version-bar"
         onClick={() => setManualChangelog(true)}
-        title="클릭하면 변경 이력을 볼 수 있습니다"
+        title={t.changelogTip}
       >
         v{__APP_VERSION__} <span className="version-sep">·</span> Seo Jeong-Cheon
       </button>

@@ -1,8 +1,30 @@
 import { useEffect, useState } from 'react';
 import { playSpeakerTone, useMicLevel } from '../lib/audioTest';
+import { useT } from '../i18n';
 
 const SEGMENT_COUNT = 12;
 const MIC_TEST_TIMEOUT_MS = 15000;
+
+const STR = {
+  ko: {
+    stopMicTest: '⏹ 마이크 테스트 중지',
+    startMicTest: '▶ 마이크 테스트',
+    micHint: '말해 보세요. 막대가 움직이면 마이크가 정상입니다 (15초 후 자동 중지)',
+    speakerPlaying: '🔊 재생 중...',
+    startSpeakerTest: '▶ 스피커 테스트',
+    speakerPlayingNote: '두 번의 짧은 신호음이 들려야 합니다',
+    speakerClickNote: '클릭 시 신호음 재생',
+  },
+  en: {
+    stopMicTest: '⏹ Stop Mic Test',
+    startMicTest: '▶ Test Mic',
+    micHint: 'Speak now. If the bars move, your mic is working (stops automatically after 15s)',
+    speakerPlaying: '🔊 Playing...',
+    startSpeakerTest: '▶ Test Speaker',
+    speakerPlayingNote: 'You should hear two short beeps',
+    speakerClickNote: 'Click to play a test tone',
+  },
+};
 
 type Props = {
   micDeviceId: string;
@@ -16,6 +38,7 @@ export default function AudioTestControls({
   speakerDeviceId,
   variant = 'lobby',
 }: Props) {
+  const t = useT(STR);
   const [micActive, setMicActive] = useState(false);
   const [speakerPlaying, setSpeakerPlaying] = useState(false);
   const level = useMicLevel(micDeviceId || null, micActive);
@@ -23,8 +46,8 @@ export default function AudioTestControls({
   // Auto-stop mic test after timeout so we don't keep the device open forever.
   useEffect(() => {
     if (!micActive) return;
-    const t = window.setTimeout(() => setMicActive(false), MIC_TEST_TIMEOUT_MS);
-    return () => window.clearTimeout(t);
+    const timer = window.setTimeout(() => setMicActive(false), MIC_TEST_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
   }, [micActive]);
 
   // Restart mic test if the user changes device while test is on.
@@ -52,7 +75,7 @@ export default function AudioTestControls({
           onClick={() => setMicActive((v) => !v)}
           aria-pressed={micActive}
         >
-          {micActive ? '⏹ 마이크 테스트 중지' : '▶ 마이크 테스트'}
+          {micActive ? t.stopMicTest : t.startMicTest}
         </button>
         <div className="audio-meter" aria-hidden="true">
           {Array.from({ length: SEGMENT_COUNT }).map((_, i) => {
@@ -69,7 +92,7 @@ export default function AudioTestControls({
       </div>
       {micActive && (
         <div className="audio-test-hint">
-          말해 보세요. 막대가 움직이면 마이크가 정상입니다 (15초 후 자동 중지)
+          {t.micHint}
         </div>
       )}
 
@@ -80,10 +103,10 @@ export default function AudioTestControls({
           onClick={handleSpeakerTest}
           disabled={speakerPlaying}
         >
-          {speakerPlaying ? '🔊 재생 중...' : '▶ 스피커 테스트'}
+          {speakerPlaying ? t.speakerPlaying : t.startSpeakerTest}
         </button>
         <span className="audio-test-note">
-          {speakerPlaying ? '두 번의 짧은 신호음이 들려야 합니다' : '클릭 시 신호음 재생'}
+          {speakerPlaying ? t.speakerPlayingNote : t.speakerClickNote}
         </span>
       </div>
     </div>

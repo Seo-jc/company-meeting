@@ -1,5 +1,29 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import AudioTestControls from './AudioTestControls';
+import { useT } from '../i18n';
+
+const STR = {
+  ko: {
+    audioDevices: '오디오 장치',
+    mic: '마이크',
+    switching: '전환 중...',
+    systemDefault: '시스템 기본값',
+    micLabel: (id: string) => `마이크 (${id})`,
+    speaker: '스피커',
+    speakerLabel: (id: string) => `스피커 (${id})`,
+    speakerUnsupportedHint: '스피커 출력 선택 미지원 환경',
+  },
+  en: {
+    audioDevices: 'Audio Devices',
+    mic: 'Microphone',
+    switching: 'Switching...',
+    systemDefault: 'System default',
+    micLabel: (id: string) => `Microphone (${id})`,
+    speaker: 'Speaker',
+    speakerLabel: (id: string) => `Speaker (${id})`,
+    speakerUnsupportedHint: 'Speaker output selection is not supported in this environment',
+  },
+};
 
 const MIC_KEY = 'selectedMicId';
 const SPEAKER_KEY = 'selectedSpeakerId';
@@ -21,6 +45,7 @@ export default function AudioSettingsPopover({
   const [selectedSpeaker, setSelectedSpeaker] = useState('');
   const [switchingMic, setSwitchingMic] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const t = useT(STR);
 
   const loadDevices = useCallback(async () => {
     try {
@@ -80,23 +105,23 @@ export default function AudioSettingsPopover({
   return (
     <div className="audio-popover" ref={popoverRef} role="dialog">
       <div className="audio-popover-arrow" />
-      <div className="audio-popover-title">오디오 장치</div>
+      <div className="audio-popover-title">{t.audioDevices}</div>
 
       <div className="audio-field">
         <label>
           <span className="audio-icon">🎤</span>
-          <span>마이크</span>
-          {switchingMic && <span className="audio-switching">전환 중...</span>}
+          <span>{t.mic}</span>
+          {switchingMic && <span className="audio-switching">{t.switching}</span>}
         </label>
         <select
           value={selectedMic}
           onChange={(e) => void handleMicChange(e.target.value)}
           disabled={switchingMic}
         >
-          <option value="">시스템 기본값</option>
+          <option value="">{t.systemDefault}</option>
           {mics.map((m) => (
             <option key={m.deviceId} value={m.deviceId}>
-              {m.label || `마이크 (${m.deviceId.slice(0, 6)})`}
+              {m.label || t.micLabel(m.deviceId.slice(0, 6))}
             </option>
           ))}
         </select>
@@ -105,22 +130,22 @@ export default function AudioSettingsPopover({
       <div className="audio-field">
         <label>
           <span className="audio-icon">🔊</span>
-          <span>스피커</span>
+          <span>{t.speaker}</span>
         </label>
         <select
           value={selectedSpeaker}
           onChange={(e) => handleSpeakerChange(e.target.value)}
           disabled={!speakerSupported}
         >
-          <option value="">시스템 기본값</option>
+          <option value="">{t.systemDefault}</option>
           {speakers.map((s) => (
             <option key={s.deviceId} value={s.deviceId}>
-              {s.label || `스피커 (${s.deviceId.slice(0, 6)})`}
+              {s.label || t.speakerLabel(s.deviceId.slice(0, 6))}
             </option>
           ))}
         </select>
         {!speakerSupported && (
-          <p className="audio-hint">스피커 출력 선택 미지원 환경</p>
+          <p className="audio-hint">{t.speakerUnsupportedHint}</p>
         )}
       </div>
 

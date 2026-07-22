@@ -1,5 +1,23 @@
 import { SignalingClient } from './signaling';
 import { sendBugReport } from './bugReporter';
+import { pickT } from '../i18n';
+
+const STR = {
+  ko: {
+    defaultParticipant: '참가자',
+    connectionClosed: '연결이 종료되었습니다',
+    fileAssemblyFailed: '파일 조립 실패',
+    fileTooLarge: (maxMb: number) => `파일 크기가 너무 큽니다 (최대 ${maxMb} MB)`,
+    noConnectedPeers: '연결된 참가자가 없습니다',
+  },
+  en: {
+    defaultParticipant: 'Participant',
+    connectionClosed: 'Connection closed',
+    fileAssemblyFailed: 'Failed to assemble file',
+    fileTooLarge: (maxMb: number) => `File is too large (max ${maxMb} MB)`,
+    noConnectedPeers: 'No connected participants',
+  },
+};
 
 const FALLBACK_ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
@@ -242,7 +260,7 @@ export class MeshConnection {
         }
         this.cb.onPeerUpdate({
           peerId: msg.from,
-          displayName: this.displayNames.get(msg.from) ?? '참가자',
+          displayName: this.displayNames.get(msg.from) ?? pickT(STR).defaultParticipant,
           stream,
           muted: this.muteStates.get(msg.from) ?? false,
         });
@@ -257,7 +275,7 @@ export class MeshConnection {
       if (stream) {
         this.cb.onPeerUpdate({
           peerId: msg.from,
-          displayName: this.displayNames.get(msg.from) ?? '참가자',
+          displayName: this.displayNames.get(msg.from) ?? pickT(STR).defaultParticipant,
           stream,
           muted: msg.muted,
         });
@@ -379,7 +397,7 @@ export class MeshConnection {
         }
         this.cb.onPeerUpdate({
           peerId,
-          displayName: this.displayNames.get(peerId) ?? '참가자',
+          displayName: this.displayNames.get(peerId) ?? pickT(STR).defaultParticipant,
           stream: stream!,
           muted: this.muteStates.get(peerId) ?? false,
         });
@@ -387,7 +405,7 @@ export class MeshConnection {
 
       this.cb.onPeerUpdate({
         peerId,
-        displayName: this.displayNames.get(peerId) ?? '참가자',
+        displayName: this.displayNames.get(peerId) ?? pickT(STR).defaultParticipant,
         stream,
         muted: this.muteStates.get(peerId) ?? false,
       });
@@ -500,7 +518,7 @@ export class MeshConnection {
       this.dataChannels.delete(peerId);
       const activeFileId = this.peerActiveFile.get(peerId);
       if (activeFileId) {
-        this.cb.onFileFailed({ id: activeFileId, reason: '연결이 종료되었습니다' });
+        this.cb.onFileFailed({ id: activeFileId, reason: pickT(STR).connectionClosed });
         this.incomingFiles.delete(activeFileId);
         this.peerActiveFile.delete(peerId);
       }
@@ -527,7 +545,7 @@ export class MeshConnection {
         msg.name &&
         typeof msg.size === 'number'
       ) {
-        const fromName = this.displayNames.get(peerId) ?? '참가자';
+        const fromName = this.displayNames.get(peerId) ?? pickT(STR).defaultParticipant;
         const mime = msg.mime || 'application/octet-stream';
         this.incomingFiles.set(msg.id, {
           id: msg.id,
@@ -556,7 +574,7 @@ export class MeshConnection {
             this.cb.onFileComplete({ id: msg.id, blobUrl: url });
           } catch (err) {
             console.error('[dc] blob assembly failed', err);
-            this.cb.onFileFailed({ id: msg.id, reason: '파일 조립 실패' });
+            this.cb.onFileFailed({ id: msg.id, reason: pickT(STR).fileAssemblyFailed });
           }
           this.incomingFiles.delete(msg.id);
           if (this.peerActiveFile.get(peerId) === msg.id) {
@@ -585,13 +603,13 @@ export class MeshConnection {
     onProgress?: (sent: number, total: number) => void
   ): Promise<void> {
     if (file.size > FILE_MAX_SIZE) {
-      throw new Error(`파일 크기가 너무 큽니다 (최대 ${FILE_MAX_SIZE / 1024 / 1024} MB)`);
+      throw new Error(pickT(STR).fileTooLarge(FILE_MAX_SIZE / 1024 / 1024));
     }
     const channels = Array.from(this.dataChannels.values()).filter(
       (dc) => dc.readyState === 'open'
     );
     if (channels.length === 0) {
-      throw new Error('연결된 참가자가 없습니다');
+      throw new Error(pickT(STR).noConnectedPeers);
     }
 
     const meta = JSON.stringify({
@@ -665,7 +683,7 @@ export class MeshConnection {
         message: `WebRTC peer connection failed`,
         details: {
           peerIdHash: peerId.slice(0, 8),
-          peerName: this.displayNames.get(peerId) ?? '참가자',
+          peerName: this.displayNames.get(peerId) ?? pickT(STR).defaultParticipant,
           iceState: pc.iceConnectionState,
           iceGatheringState: pc.iceGatheringState,
           signalingState: pc.signalingState,

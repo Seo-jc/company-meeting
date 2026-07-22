@@ -12,6 +12,108 @@ import {
   getStoredPassword,
   clearStoredPassword,
 } from '../lib/adminAuth';
+import { useLang, useT } from '../i18n';
+
+const STR = {
+  ko: {
+    presence: '👥 접속 현황',
+    presenceTip: '접속 현황 보기 (관리자 전용)',
+    bugs: '🐞 버그 확인',
+    bugsTip: '버그 보고서 보기 (관리자 전용)',
+    subtitle: '사내 음성 회의 + 화면 공유',
+    nameLabel: '이름',
+    namePlaceholder: '회의에서 표시될 이름',
+    createSection: '새 회의 만들기',
+    codePlaceholderCreate: '고정 코드 (비워두면 랜덤)',
+    create: '만들기',
+    or: '또는',
+    joinSection: '코드로 참가',
+    codePlaceholderJoin: '회의 코드',
+    join: '참가',
+    manual: '📖 사용자 메뉴얼',
+    manualTip: '사용자 메뉴얼을 봅니다',
+    feedback: '💡 의견 보내기',
+    feedbackTip: '기능 제안이나 의견을 보냅니다',
+    recentTitle: '최근 회의',
+    recentEmpty1: '참여했던 회의가',
+    recentEmpty2: '이곳에 표시됩니다',
+    rejoinTip: '클릭해서 다시 참가',
+    enterNameFirst: '이름을 먼저 입력하세요',
+    noName: '이름 없음',
+    promoteTip: '저장된 회의로 추가',
+    saveAria: '저장',
+    deleteTip: '삭제',
+    deleteAria: '삭제',
+    savedTitle: '저장된 회의',
+    addTip: '회의 추가',
+    add: '+ 추가',
+    savedNamePlaceholder: '회의 이름 (예: 주간 회의)',
+    savedCodePlaceholder: '고정 코드 (예: WEEKLY)',
+    save: '저장',
+    cancel: '취소',
+    savedEmpty1: '자주 쓰는 회의를 저장하면',
+    savedEmpty2: '한 번에 참가할 수 있습니다',
+    joinTip: '클릭해서 참가',
+    unit: '명',
+    empty: '비어 있음',
+    errNameFirst: '이름을 먼저 입력해주세요',
+    errMeetingCode: '회의 코드는 영문 대문자 + 숫자 4~10자입니다',
+    errJoinCode: '참가 코드는 영문 대문자 + 숫자 4~10자입니다',
+    errSavedName: '회의 이름을 입력해주세요',
+    errSavedCode: '코드는 영문 대문자 + 숫자 4~10자입니다',
+    errDupCode: '이미 저장된 코드입니다',
+    langToggle: 'English',
+  },
+  en: {
+    presence: '👥 Presence',
+    presenceTip: 'View presence (admin only)',
+    bugs: '🐞 Bugs',
+    bugsTip: 'View bug reports (admin only)',
+    subtitle: 'In-house voice meeting + screen share',
+    nameLabel: 'Name',
+    namePlaceholder: 'Name shown in the meeting',
+    createSection: 'Create a meeting',
+    codePlaceholderCreate: 'Fixed code (blank = random)',
+    create: 'Create',
+    or: 'or',
+    joinSection: 'Join with a code',
+    codePlaceholderJoin: 'Meeting code',
+    join: 'Join',
+    manual: '📖 User Manual',
+    manualTip: 'View the user manual',
+    feedback: '💡 Send Feedback',
+    feedbackTip: 'Suggest a feature or send feedback',
+    recentTitle: 'Recent',
+    recentEmpty1: 'Meetings you joined',
+    recentEmpty2: 'will appear here',
+    rejoinTip: 'Click to rejoin',
+    enterNameFirst: 'Enter your name first',
+    noName: 'No name',
+    promoteTip: 'Add to saved meetings',
+    saveAria: 'Save',
+    deleteTip: 'Delete',
+    deleteAria: 'Delete',
+    savedTitle: 'Saved',
+    addTip: 'Add meeting',
+    add: '+ Add',
+    savedNamePlaceholder: 'Meeting name (e.g. Weekly Sync)',
+    savedCodePlaceholder: 'Fixed code (e.g. WEEKLY)',
+    save: 'Save',
+    cancel: 'Cancel',
+    savedEmpty1: 'Save frequently used meetings',
+    savedEmpty2: 'to join them in one click',
+    joinTip: 'Click to join',
+    unit: '',
+    empty: 'Empty',
+    errNameFirst: 'Please enter your name first',
+    errMeetingCode: 'Meeting code must be 4–10 uppercase letters/numbers',
+    errJoinCode: 'Join code must be 4–10 uppercase letters/numbers',
+    errSavedName: 'Please enter a meeting name',
+    errSavedCode: 'Code must be 4–10 uppercase letters/numbers',
+    errDupCode: 'That code is already saved',
+    langToggle: '한국어',
+  },
+};
 
 const SIGNALING_HTTP_BASE =
   (import.meta as any).env?.VITE_SIGNALING_URL?.replace(
@@ -148,6 +250,8 @@ export default function Lobby({ onJoin }: Props) {
   const [renamingMeeting, setRenamingMeeting] = useState<RecentMeeting | null>(null);
   const [bugUnread, setBugUnread] = useState(0);
   const cancelledRef = useRef(false);
+  const t = useT(STR);
+  const { lang, setLang } = useLang();
 
   useEffect(() => {
     setSavedMeetings(loadSaved());
@@ -259,7 +363,7 @@ export default function Lobby({ onJoin }: Props) {
 
   const requireName = (): boolean => {
     if (!trimmedName) {
-      setError('이름을 먼저 입력해주세요');
+      setError(t.errNameFirst);
       return false;
     }
     setError('');
@@ -269,7 +373,7 @@ export default function Lobby({ onJoin }: Props) {
   const handleCreate = () => {
     if (!requireName()) return;
     if (trimmedCustomCode && !isValidCode(trimmedCustomCode)) {
-      setError('회의 코드는 영문 대문자 + 숫자 4~10자입니다');
+      setError(t.errMeetingCode);
       return;
     }
     const code = trimmedCustomCode || generateRoomCode();
@@ -281,7 +385,7 @@ export default function Lobby({ onJoin }: Props) {
   const handleJoin = () => {
     if (!requireName()) return;
     if (!isValidCode(trimmedJoinCode)) {
-      setError('참가 코드는 영문 대문자 + 숫자 4~10자입니다');
+      setError(t.errJoinCode);
       return;
     }
     persistName(trimmedName);
@@ -334,15 +438,15 @@ export default function Lobby({ onJoin }: Props) {
     const name = newMeetingName.trim();
     const code = newMeetingCode.trim().toUpperCase();
     if (!name) {
-      setError('회의 이름을 입력해주세요');
+      setError(t.errSavedName);
       return;
     }
     if (!isValidCode(code)) {
-      setError('코드는 영문 대문자 + 숫자 4~10자입니다');
+      setError(t.errSavedCode);
       return;
     }
     if (savedMeetings.some((m) => m.code === code)) {
-      setError('이미 저장된 코드입니다');
+      setError(t.errDupCode);
       return;
     }
     const newList = [...savedMeetings, { id: crypto.randomUUID(), name, code }];
@@ -369,46 +473,56 @@ export default function Lobby({ onJoin }: Props) {
 
   return (
     <div className="lobby">
-      {adminPassword && (
-        <div className="lobby-admin-bar">
-          <button
-            type="button"
-            className="lobby-bug-btn"
-            onClick={() => setShowPresence(true)}
-            title="접속 현황 보기 (관리자 전용)"
-          >
-            👥 접속 현황
-          </button>
-          <button
-            type="button"
-            className="lobby-bug-btn"
-            onClick={() => setShowBugViewer(true)}
-            title="버그 보고서 보기 (관리자 전용)"
-          >
-            🐞 버그 확인
-            {bugUnread > 0 && (
-              <span className="lobby-bug-badge">
-                {bugUnread > 99 ? '99+' : bugUnread}
-              </span>
-            )}
-          </button>
-        </div>
-      )}
+      <div className="lobby-admin-bar">
+        <button
+          type="button"
+          className="lobby-lang-btn"
+          onClick={() => setLang(lang === 'ko' ? 'en' : 'ko')}
+          title={lang === 'ko' ? 'Switch to English' : '한국어로 전환'}
+        >
+          🌐 {t.langToggle}
+        </button>
+        {adminPassword && (
+          <>
+            <button
+              type="button"
+              className="lobby-bug-btn"
+              onClick={() => setShowPresence(true)}
+              title={t.presenceTip}
+            >
+              {t.presence}
+            </button>
+            <button
+              type="button"
+              className="lobby-bug-btn"
+              onClick={() => setShowBugViewer(true)}
+              title={t.bugsTip}
+            >
+              {t.bugs}
+              {bugUnread > 0 && (
+                <span className="lobby-bug-badge">
+                  {bugUnread > 99 ? '99+' : bugUnread}
+                </span>
+              )}
+            </button>
+          </>
+        )}
+      </div>
       <div className="lobby-card">
         <div className="lobby-brand">
           <Logo size="lg" showWordmark={false} />
         </div>
         <h1 className="lobby-product-name">PikMeeting</h1>
-        <p className="subtitle">사내 음성 회의 + 화면 공유</p>
+        <p className="subtitle">{t.subtitle}</p>
 
         <div className="field">
-          <label htmlFor="name">이름</label>
+          <label htmlFor="name">{t.nameLabel}</label>
           <input
             id="name"
             type="text"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
-            placeholder="회의에서 표시될 이름"
+            placeholder={t.namePlaceholder}
             autoFocus
             maxLength={20}
           />
@@ -417,14 +531,14 @@ export default function Lobby({ onJoin }: Props) {
         {error && <div className="lobby-error">{error}</div>}
 
         <div className="lobby-section">
-          <div className="lobby-section-title">새 회의 만들기</div>
+          <div className="lobby-section-title">{t.createSection}</div>
           <input
             type="text"
             value={customCode}
             onChange={(e) =>
               setCustomCode(e.target.value.toUpperCase().slice(0, MAX_CODE_LENGTH))
             }
-            placeholder="고정 코드 (비워두면 랜덤)"
+            placeholder={t.codePlaceholderCreate}
             maxLength={MAX_CODE_LENGTH}
             className="code-input"
           />
@@ -433,23 +547,23 @@ export default function Lobby({ onJoin }: Props) {
             onClick={handleCreate}
             disabled={!trimmedName}
           >
-            만들기
+            {t.create}
           </button>
         </div>
 
         <div className="divider">
-          <span>또는</span>
+          <span>{t.or}</span>
         </div>
 
         <div className="lobby-section">
-          <div className="lobby-section-title">코드로 참가</div>
+          <div className="lobby-section-title">{t.joinSection}</div>
           <input
             type="text"
             value={joinCode}
             onChange={(e) =>
               setJoinCode(e.target.value.toUpperCase().slice(0, MAX_CODE_LENGTH))
             }
-            placeholder="회의 코드"
+            placeholder={t.codePlaceholderJoin}
             maxLength={MAX_CODE_LENGTH}
             className="code-input"
           />
@@ -458,7 +572,7 @@ export default function Lobby({ onJoin }: Props) {
             onClick={handleJoin}
             disabled={!trimmedName || trimmedJoinCode.length < MIN_CODE_LENGTH}
           >
-            참가
+            {t.join}
           </button>
         </div>
 
@@ -466,33 +580,33 @@ export default function Lobby({ onJoin }: Props) {
           type="button"
           className="lobby-manual-btn"
           onClick={() => setShowManual(true)}
-          title="사용자 메뉴얼을 봅니다"
+          title={t.manualTip}
         >
-          📖 사용자 메뉴얼
+          {t.manual}
         </button>
 
         <button
           type="button"
           className="lobby-feedback-btn"
           onClick={() => setShowFeedback(true)}
-          title="기능 제안이나 의견을 보냅니다"
+          title={t.feedbackTip}
         >
-          💡 의견 보내기
+          {t.feedback}
         </button>
       </div>
 
       <div className="lobby-right">
       <aside className="lobby-recent-panel">
         <div className="saved-panel-header">
-          <h3>최근 회의</h3>
+          <h3>{t.recentTitle}</h3>
         </div>
         <div className="saved-panel-body">
           {visibleRecent.length === 0 ? (
             <div className="saved-empty">
               <div className="saved-empty-icon">🕒</div>
               <div className="saved-empty-text">
-                참여했던 회의가
-                <br />이곳에 표시됩니다
+                {t.recentEmpty1}
+                <br />{t.recentEmpty2}
               </div>
             </div>
           ) : (
@@ -503,11 +617,11 @@ export default function Lobby({ onJoin }: Props) {
                     className="saved-join"
                     onClick={() => handleJoinRecent(r)}
                     disabled={!trimmedName}
-                    title={trimmedName ? '클릭해서 다시 참가' : '이름을 먼저 입력하세요'}
+                    title={trimmedName ? t.rejoinTip : t.enterNameFirst}
                   >
                     <div className="saved-info">
                       <div className="saved-name">
-                        {r.name || <span className="recent-no-name">이름 없음</span>}
+                        {r.name || <span className="recent-no-name">{t.noName}</span>}
                       </div>
                       <div className="saved-code">{r.code}</div>
                     </div>
@@ -515,16 +629,16 @@ export default function Lobby({ onJoin }: Props) {
                   <button
                     className="recent-promote"
                     onClick={() => handlePromoteToSaved(r)}
-                    title="저장된 회의로 추가"
-                    aria-label="저장"
+                    title={t.promoteTip}
+                    aria-label={t.saveAria}
                   >
                     📌
                   </button>
                   <button
                     className="saved-delete"
                     onClick={() => handleDeleteRecent(r.id)}
-                    title="삭제"
-                    aria-label="삭제"
+                    title={t.deleteTip}
+                    aria-label={t.deleteAria}
                   >
                     ✕
                   </button>
@@ -536,7 +650,7 @@ export default function Lobby({ onJoin }: Props) {
       </aside>
       <aside className="lobby-saved-panel">
         <div className="saved-panel-header">
-          <h3>저장된 회의</h3>
+          <h3>{t.savedTitle}</h3>
           {!showAddForm && (
             <button
               className="saved-add-btn"
@@ -544,9 +658,9 @@ export default function Lobby({ onJoin }: Props) {
                 setShowAddForm(true);
                 setError('');
               }}
-              title="회의 추가"
+              title={t.addTip}
             >
-              + 추가
+              {t.add}
             </button>
           )}
         </div>
@@ -558,7 +672,7 @@ export default function Lobby({ onJoin }: Props) {
                 type="text"
                 value={newMeetingName}
                 onChange={(e) => setNewMeetingName(e.target.value)}
-                placeholder="회의 이름 (예: 주간 회의)"
+                placeholder={t.savedNamePlaceholder}
                 maxLength={30}
                 autoFocus
               />
@@ -570,16 +684,16 @@ export default function Lobby({ onJoin }: Props) {
                     e.target.value.toUpperCase().slice(0, MAX_CODE_LENGTH)
                   )
                 }
-                placeholder="고정 코드 (예: WEEKLY)"
+                placeholder={t.savedCodePlaceholder}
                 maxLength={MAX_CODE_LENGTH}
                 className="code-input"
               />
               <div className="saved-add-actions">
                 <button className="btn btn-primary" onClick={handleAddSaved}>
-                  저장
+                  {t.save}
                 </button>
                 <button className="btn" onClick={cancelAddForm}>
-                  취소
+                  {t.cancel}
                 </button>
               </div>
             </div>
@@ -589,8 +703,8 @@ export default function Lobby({ onJoin }: Props) {
             <div className="saved-empty">
               <div className="saved-empty-icon">📌</div>
               <div className="saved-empty-text">
-                자주 쓰는 회의를 저장하면
-                <br />한 번에 참가할 수 있습니다
+                {t.savedEmpty1}
+                <br />{t.savedEmpty2}
               </div>
             </div>
           )}
@@ -609,11 +723,7 @@ export default function Lobby({ onJoin }: Props) {
                       className="saved-join"
                       onClick={() => handleQuickJoin(m)}
                       disabled={!trimmedName}
-                      title={
-                        trimmedName
-                          ? '클릭해서 참가'
-                          : '이름을 먼저 입력하세요'
-                      }
+                      title={trimmedName ? t.joinTip : t.enterNameFirst}
                     >
                       <span
                         className={`status-dot ${active ? 'active' : ''}`}
@@ -627,18 +737,18 @@ export default function Lobby({ onJoin }: Props) {
                         {active ? (
                           <>
                             <span className="count-num">{count}</span>
-                            <span className="count-unit">명</span>
+                            <span className="count-unit">{t.unit}</span>
                           </>
                         ) : (
-                          <span className="count-empty">비어 있음</span>
+                          <span className="count-empty">{t.empty}</span>
                         )}
                       </div>
                     </button>
                     <button
                       className="saved-delete"
                       onClick={() => handleDelete(m.id)}
-                      title="삭제"
-                      aria-label="삭제"
+                      title={t.deleteTip}
+                      aria-label={t.deleteAria}
                     >
                       ✕
                     </button>

@@ -15,6 +15,122 @@ import Logo from './Logo';
 import AudioSettingsPopover from './AudioSettingsPopover';
 import { useSpeakingDetection } from '../lib/speakingDetection';
 import { getIceServers } from '../lib/turnCredentials';
+import { useLang, useT } from '../i18n';
+
+const STR = {
+  ko: {
+    errNoMic:
+      '마이크를 찾을 수 없습니다. PC에 마이크가 연결되어 있는지, Windows 설정에서 앱의 마이크 접근이 허용되어 있는지 확인해 주세요.',
+    errStaleMic: '이전에 선택한 마이크 장치를 찾을 수 없습니다. 마이크 설정을 다시 선택해 주세요.',
+    errMicDenied:
+      '마이크 접근이 거부되었습니다. Windows 설정에서 "데스크톱 앱이 마이크에 액세스하도록 허용"을 켠 후 다시 시도해 주세요.',
+    errMicInUse:
+      '마이크가 다른 프로그램에서 사용 중입니다. 다른 화상회의/녹음 프로그램을 종료한 후 다시 시도해 주세요.',
+    errUnknownConnect: '연결에 실패했습니다',
+    shareFailPrefix: '화면 공유 실패: ',
+    noRecipients: '받을 사람이 없습니다. 다른 참가자가 입장한 후 다시 시도해 주세요.',
+    unknownError: '알 수 없는 오류',
+    errTitlePermission: '마이크 권한이 필요합니다',
+    errTitleNoDevice: '마이크를 찾을 수 없습니다',
+    errTitleInUse: '마이크가 사용 중입니다',
+    errTitleNetwork: '서버 연결 실패',
+    errTitleUnknown: '연결 실패',
+    errHint: '설정에서 권한을 변경한 후 "다시 시도"를 눌러주세요.',
+    errHintListen: '지금 듣기/채팅만 사용하실 수도 있습니다.',
+    openMicSettings: 'Windows 마이크 설정 열기',
+    retry: '다시 시도',
+    joinListenOnly: '🎧 마이크 없이 입장 (듣기/채팅만)',
+    backToLobby: '로비로 돌아가기',
+    connecting: '회의에 연결 중...',
+    allowMicHint: '마이크 권한을 허용해 주세요',
+    roomCodeLabel: '회의 코드',
+    clickToCopy: '클릭해서 복사',
+    copied: '복사됨',
+    copy: '복사',
+    participantCount: (n: number) => `참가자 ${n}명`,
+    listenOnlyBanner:
+      '🎧 듣기 전용 모드 · 마이크 없이 입장하여 음성 발신은 불가하지만 다른 사람의 음성과 채팅은 정상적으로 이용 가능합니다.',
+    dblClickExpand: '더블클릭으로 확대',
+    zoomOutTip: '축소 (마우스 휠 아래로도 가능)',
+    zoomOutAria: '축소',
+    zoomResetTip: '원래 크기로 (100%)',
+    zoomInTip: '확대 (마우스 휠 위로도 가능)',
+    zoomInAria: '확대',
+    audioDeviceSettings: '오디오 장치 설정',
+    micNoSendTitle: '마이크가 없어 음성 발신이 불가합니다',
+    unmute: '음소거 해제',
+    mute: '음소거',
+    noMic: '마이크 없음',
+    shareStop: '화면 공유 중지',
+    share: '화면 공유',
+    shareStopLabel: '공유 중지',
+    chatClose: '채팅 닫기',
+    chatOpen: '채팅 열기',
+    chat: '채팅',
+    leave: '나가기',
+    currentTimeTip: '현재 시간 · 회의 진행 시간',
+    selfSuffix: '(나)',
+    listenOnlyBadge: '듣기 전용',
+    mutedBadge: '음소거',
+    mySharingScreen: '내 화면 (공유 중)',
+  },
+  en: {
+    errNoMic:
+      'Microphone not found. Please check that a microphone is connected to your PC and that the app has microphone access in Windows Settings.',
+    errStaleMic: 'The previously selected microphone could not be found. Please choose a microphone again.',
+    errMicDenied:
+      'Microphone access was denied. Please enable "Allow desktop apps to access your microphone" in Windows Settings, then try again.',
+    errMicInUse:
+      'The microphone is in use by another program. Please close other video call or recording apps and try again.',
+    errUnknownConnect: 'Connection failed',
+    shareFailPrefix: 'Screen share failed: ',
+    noRecipients: 'No one to send to. Please try again after another participant joins.',
+    unknownError: 'Unknown error',
+    errTitlePermission: 'Microphone permission required',
+    errTitleNoDevice: 'Microphone not found',
+    errTitleInUse: 'Microphone is in use',
+    errTitleNetwork: 'Server connection failed',
+    errTitleUnknown: 'Connection failed',
+    errHint: 'Please change the permission in Settings, then click "Retry".',
+    errHintListen: 'You can also join now with listening/chat only.',
+    openMicSettings: 'Open Windows microphone settings',
+    retry: 'Retry',
+    joinListenOnly: '🎧 Join without mic (listen/chat only)',
+    backToLobby: 'Back to lobby',
+    connecting: 'Connecting to meeting...',
+    allowMicHint: 'Please allow microphone access',
+    roomCodeLabel: 'Meeting code',
+    clickToCopy: 'Click to copy',
+    copied: 'Copied',
+    copy: 'Copy',
+    participantCount: (n: number) => `${n} participant${n === 1 ? '' : 's'}`,
+    listenOnlyBanner:
+      '🎧 Listen-only mode · You joined without a microphone so you cannot send audio, but you can still hear others and use chat normally.',
+    dblClickExpand: 'Double-click to expand',
+    zoomOutTip: 'Zoom out (mouse wheel down also works)',
+    zoomOutAria: 'Zoom out',
+    zoomResetTip: 'Reset to original size (100%)',
+    zoomInTip: 'Zoom in (mouse wheel up also works)',
+    zoomInAria: 'Zoom in',
+    audioDeviceSettings: 'Audio device settings',
+    micNoSendTitle: 'No microphone, so you cannot send audio',
+    unmute: 'Unmute',
+    mute: 'Mute',
+    noMic: 'No mic',
+    shareStop: 'Stop screen share',
+    share: 'Share screen',
+    shareStopLabel: 'Stop sharing',
+    chatClose: 'Close chat',
+    chatOpen: 'Open chat',
+    chat: 'Chat',
+    leave: 'Leave',
+    currentTimeTip: 'Current time · Meeting duration',
+    selfSuffix: '(You)',
+    listenOnlyBadge: 'Listen only',
+    mutedBadge: 'Muted',
+    mySharingScreen: 'My screen (sharing)',
+  },
+};
 
 type Props = {
   roomCode: string;
@@ -31,30 +147,33 @@ const SCREEN_SELF_ID = '__screen_self__';
 
 const isElectron = typeof window !== 'undefined' && !!window.electronAPI;
 
-function classifyError(e: unknown): { kind: ErrorKind; msg: string } {
+function classifyError(
+  e: unknown,
+  t: (typeof STR)['ko']
+): { kind: ErrorKind; msg: string } {
   if (e instanceof DOMException) {
     switch (e.name) {
       case 'NotFoundError':
         return {
           kind: 'no-device',
-          msg: '마이크를 찾을 수 없습니다. PC에 마이크가 연결되어 있는지, Windows 설정에서 앱의 마이크 접근이 허용되어 있는지 확인해 주세요.',
+          msg: t.errNoMic,
         };
       case 'OverconstrainedError':
         return {
           kind: 'no-device',
-          msg: '이전에 선택한 마이크 장치를 찾을 수 없습니다. 마이크 설정을 다시 선택해 주세요.',
+          msg: t.errStaleMic,
         };
       case 'NotAllowedError':
       case 'SecurityError':
         return {
           kind: 'permission',
-          msg: '마이크 접근이 거부되었습니다. Windows 설정에서 "데스크톱 앱이 마이크에 액세스하도록 허용"을 켠 후 다시 시도해 주세요.',
+          msg: t.errMicDenied,
         };
       case 'NotReadableError':
       case 'TrackStartError':
         return {
           kind: 'in-use',
-          msg: '마이크가 다른 프로그램에서 사용 중입니다. 다른 화상회의/녹음 프로그램을 종료한 후 다시 시도해 주세요.',
+          msg: t.errMicInUse,
         };
     }
   }
@@ -64,7 +183,7 @@ function classifyError(e: unknown): { kind: ErrorKind; msg: string } {
     }
     return { kind: 'unknown', msg: e.message };
   }
-  return { kind: 'unknown', msg: '연결에 실패했습니다' };
+  return { kind: 'unknown', msg: t.errUnknownConnect };
 }
 
 export default function MeetingRoom({
@@ -97,6 +216,8 @@ export default function MeetingRoom({
 
   const [myId, setMyId] = useState<string>('');
   const [meetingStartTs] = useState(Date.now());
+
+  const t = useT(STR);
 
   const meshRef = useRef<MeshConnection | null>(null);
   const signalingRef = useRef<SignalingClient | null>(null);
@@ -226,7 +347,7 @@ export default function MeetingRoom({
         setStatus('connected');
       } catch (e) {
         console.error('[meeting] connection failed', e);
-        const { kind, msg } = classifyError(e);
+        const { kind, msg } = classifyError(e, t);
         if (kind === 'no-device' && e instanceof DOMException && e.name === 'OverconstrainedError') {
           // Stale saved deviceId - clear it so retry uses default
           localStorage.removeItem('selectedMicId');
@@ -381,7 +502,7 @@ export default function MeetingRoom({
   const reportShareError = (e: unknown) => {
     const msg = e instanceof Error ? e.message : String(e);
     if (!/permission denied|aborted|not allowed|cancel|abort/i.test(msg)) {
-      setShareError('화면 공유 실패: ' + msg);
+      setShareError(t.shareFailPrefix + msg);
       setTimeout(() => setShareError(null), 6000);
     }
   };
@@ -435,7 +556,7 @@ export default function MeetingRoom({
 
     // Pre-check: if there are no other participants, fail fast with a clear reason.
     if (peers.length === 0) {
-      const reason = '받을 사람이 없습니다. 다른 참가자가 입장한 후 다시 시도해 주세요.';
+      const reason = t.noRecipients;
       const fileId = crypto.randomUUID();
       setMessages((prev) => [
         ...prev,
@@ -499,7 +620,7 @@ export default function MeetingRoom({
       );
     } catch (err) {
       console.error('[file] send failed', err);
-      const reason = err instanceof Error ? err.message : '알 수 없는 오류';
+      const reason = err instanceof Error ? err.message : t.unknownError;
       setMessages((prev) =>
         prev.map((m) =>
           m.file && m.file.id === fileId
@@ -549,14 +670,14 @@ export default function MeetingRoom({
       errorKind === 'permission' || errorKind === 'no-device' || errorKind === 'in-use';
     const errorTitle =
       errorKind === 'permission'
-        ? '마이크 권한이 필요합니다'
+        ? t.errTitlePermission
         : errorKind === 'no-device'
-        ? '마이크를 찾을 수 없습니다'
+        ? t.errTitleNoDevice
         : errorKind === 'in-use'
-        ? '마이크가 사용 중입니다'
+        ? t.errTitleInUse
         : errorKind === 'network'
-        ? '서버 연결 실패'
-        : '연결 실패';
+        ? t.errTitleNetwork
+        : t.errTitleUnknown;
     return (
       <div className="centered">
         <div className="card error-card">
@@ -564,27 +685,27 @@ export default function MeetingRoom({
           <p className="error-text">{errorMsg}</p>
           {showSettings && (
             <p className="error-hint">
-              설정에서 권한을 변경한 후 "다시 시도"를 눌러주세요.
+              {t.errHint}
               <br />
-              지금 듣기/채팅만 사용하실 수도 있습니다.
+              {t.errHintListen}
             </p>
           )}
           <div className="error-actions">
             {showSettings && (
               <button className="btn btn-primary" onClick={handleOpenMicSettings}>
-                Windows 마이크 설정 열기
+                {t.openMicSettings}
               </button>
             )}
             <button className="btn btn-primary" onClick={handleRetry}>
-              다시 시도
+              {t.retry}
             </button>
             {allowListenOnly && (
               <button className="btn btn-listen-only" onClick={handleJoinListenOnly}>
-                🎧 마이크 없이 입장 (듣기/채팅만)
+                {t.joinListenOnly}
               </button>
             )}
             <button className="btn" onClick={onLeave}>
-              로비로 돌아가기
+              {t.backToLobby}
             </button>
           </div>
         </div>
@@ -596,8 +717,8 @@ export default function MeetingRoom({
     return (
       <div className="centered">
         <div className="card">
-          <h2>회의에 연결 중...</h2>
-          <p className="subtitle">마이크 권한을 허용해 주세요</p>
+          <h2>{t.connecting}</h2>
+          <p className="subtitle">{t.allowMicHint}</p>
         </div>
       </div>
     );
@@ -712,11 +833,11 @@ export default function MeetingRoom({
         )}
         <div className="meeting-header-right">
           <div className="room-info">
-            <span className="label">회의 코드</span>
+            <span className="label">{t.roomCodeLabel}</span>
             <button
               className="code-pill"
               onClick={copyCode}
-              title="클릭해서 복사"
+              title={t.clickToCopy}
             >
               <span className="code-text">{roomCode}</span>
               <span className="copy-icon" aria-hidden="true">
@@ -736,16 +857,16 @@ export default function MeetingRoom({
                   </svg>
                 )}
               </span>
-              <span className="copy-label">{copied ? '복사됨' : '복사'}</span>
+              <span className="copy-label">{copied ? t.copied : t.copy}</span>
             </button>
           </div>
-          <div className="participant-count">참가자 {peers.length + 1}명</div>
+          <div className="participant-count">{t.participantCount(peers.length + 1)}</div>
         </div>
       </header>
 
       {listenOnly && (
         <div className="banner banner-info">
-          🎧 듣기 전용 모드 · 마이크 없이 입장하여 음성 발신은 불가하지만 다른 사람의 음성과 채팅은 정상적으로 이용 가능합니다.
+          {t.listenOnlyBanner}
         </div>
       )}
       {shareError && <div className="banner banner-error">{shareError}</div>}
@@ -778,15 +899,15 @@ export default function MeetingRoom({
                   type="button"
                   onClick={zoomOut}
                   disabled={zoom <= 1}
-                  title="축소 (마우스 휠 아래로도 가능)"
-                  aria-label="축소"
+                  title={t.zoomOutTip}
+                  aria-label={t.zoomOutAria}
                 >
                   −
                 </button>
                 <button
                   type="button"
                   onClick={zoomReset}
-                  title="원래 크기로 (100%)"
+                  title={t.zoomResetTip}
                 >
                   {Math.round(zoom * 100)}%
                 </button>
@@ -794,8 +915,8 @@ export default function MeetingRoom({
                   type="button"
                   onClick={zoomIn}
                   disabled={zoom >= 5}
-                  title="확대 (마우스 휠 위로도 가능)"
-                  aria-label="확대"
+                  title={t.zoomInTip}
+                  aria-label={t.zoomInAria}
                 >
                   +
                 </button>
@@ -815,8 +936,8 @@ export default function MeetingRoom({
           <button
             className={`audio-chevron ${showAudioPopover ? 'open' : ''}`}
             onClick={() => setShowAudioPopover((v) => !v)}
-            title="오디오 장치 설정"
-            aria-label="오디오 장치 설정"
+            title={t.audioDeviceSettings}
+            aria-label={t.audioDeviceSettings}
           >
             <svg width="12" height="8" viewBox="0 0 12 8" aria-hidden="true">
               <path
@@ -835,16 +956,16 @@ export default function MeetingRoom({
             disabled={listenOnly}
             title={
               listenOnly
-                ? '마이크가 없어 음성 발신이 불가합니다'
+                ? t.micNoSendTitle
                 : muted
-                ? '음소거 해제'
-                : '음소거'
+                ? t.unmute
+                : t.mute
             }
           >
             {listenOnly ? '🎧' : muted ? '🔇' : '🎤'}
           </button>
           <span className="control-label">
-            {listenOnly ? '마이크 없음' : muted ? '음소거 해제' : '음소거'}
+            {listenOnly ? t.noMic : muted ? t.unmute : t.mute}
           </span>
           {showAudioPopover && (
             <AudioSettingsPopover
@@ -858,17 +979,17 @@ export default function MeetingRoom({
           <button
             className={`btn-circle ${sharing ? 'btn-active' : ''}`}
             onClick={toggleScreenShare}
-            title={sharing ? '화면 공유 중지' : '화면 공유'}
+            title={sharing ? t.shareStop : t.share}
           >
             🖥️
           </button>
-          <span className="control-label">{sharing ? '공유 중지' : '화면 공유'}</span>
+          <span className="control-label">{sharing ? t.shareStopLabel : t.share}</span>
         </div>
         <div className="control-item">
           <button
             className={`btn-circle ${chatOpen ? 'btn-active' : ''}`}
             onClick={() => setChatOpen((v) => !v)}
-            title={chatOpen ? '채팅 닫기' : '채팅 열기'}
+            title={chatOpen ? t.chatClose : t.chatOpen}
           >
             💬
             {unreadChat > 0 && (
@@ -877,13 +998,13 @@ export default function MeetingRoom({
               </span>
             )}
           </button>
-          <span className="control-label">채팅</span>
+          <span className="control-label">{t.chat}</span>
         </div>
         <div className="control-item">
-          <button className="btn-circle btn-leave" onClick={onLeave} title="나가기">
+          <button className="btn-circle btn-leave" onClick={onLeave} title={t.leave}>
             📞
           </button>
-          <span className="control-label">나가기</span>
+          <span className="control-label">{t.leave}</span>
         </div>
       </footer>
 
@@ -910,13 +1031,15 @@ export default function MeetingRoom({
 
 function MeetingTime({ startTs }: { startTs: number }) {
   const [now, setNow] = useState(Date.now());
+  const t = useT(STR);
+  const { lang } = useLang();
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
 
-  const timeStr = new Date(now).toLocaleTimeString('ko-KR', {
+  const timeStr = new Date(now).toLocaleTimeString(lang === 'ko' ? 'ko-KR' : 'en-US', {
     hour: 'numeric',
     minute: '2-digit',
   });
@@ -931,7 +1054,7 @@ function MeetingTime({ startTs }: { startTs: number }) {
       : `${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
 
   return (
-    <div className="meeting-time" title="현재 시간 · 회의 진행 시간">
+    <div className="meeting-time" title={t.currentTimeTip}>
       <span className="time-now">{timeStr}</span>
       <span className="time-divider">·</span>
       <span className="time-elapsed">⏱ {elapsedStr}</span>
@@ -954,19 +1077,20 @@ function SelfTile({
   focused?: boolean;
   onDoubleClick?: () => void;
 }) {
+  const t = useT(STR);
   return (
     <div
       className={`tile tile-self ${focused ? 'tile-focused' : ''} ${speaking ? 'tile-speaking' : ''}`}
       onDoubleClick={onDoubleClick}
-      title="더블클릭으로 확대"
+      title={t.dblClickExpand}
     >
       <div className="tile-avatar">{name.slice(0, 1).toUpperCase()}</div>
       <div className="tile-name">
-        {name} (나){' '}
+        {name} {t.selfSuffix}{' '}
         {listenOnly ? (
-          <span className="muted-badge listen-only-badge">듣기 전용</span>
+          <span className="muted-badge listen-only-badge">{t.listenOnlyBadge}</span>
         ) : (
-          muted && <span className="muted-badge">음소거</span>
+          muted && <span className="muted-badge">{t.mutedBadge}</span>
         )}
       </div>
     </div>
@@ -983,6 +1107,7 @@ function SelfScreenTile({
   onDoubleClick?: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const t = useT(STR);
 
   useEffect(() => {
     if (videoRef.current) videoRef.current.srcObject = stream;
@@ -992,10 +1117,10 @@ function SelfScreenTile({
     <div
       className={`tile tile-screen-preview ${focused ? 'tile-focused' : ''}`}
       onDoubleClick={onDoubleClick}
-      title="더블클릭으로 확대"
+      title={t.dblClickExpand}
     >
       <video ref={videoRef} autoPlay playsInline muted />
-      <div className="tile-name">내 화면 (공유 중)</div>
+      <div className="tile-name">{t.mySharingScreen}</div>
     </div>
   );
 }
@@ -1014,6 +1139,7 @@ function PeerTile({
   const audioRef = useRef<HTMLAudioElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [hasVideo, setHasVideo] = useState(false);
+  const t = useT(STR);
 
   useEffect(() => {
     if (audioRef.current && audioRef.current.srcObject !== peer.stream) {
@@ -1040,7 +1166,7 @@ function PeerTile({
     <div
       className={`tile ${focused ? 'tile-focused' : ''} ${speaking ? 'tile-speaking' : ''}`}
       onDoubleClick={onDoubleClick}
-      title="더블클릭으로 확대"
+      title={t.dblClickExpand}
     >
       <audio ref={audioRef} autoPlay />
       {hasVideo ? (
@@ -1050,7 +1176,7 @@ function PeerTile({
       )}
       <div className="tile-name">
         {peer.displayName}
-        {peer.muted && <span className="muted-badge">음소거</span>}
+        {peer.muted && <span className="muted-badge">{t.mutedBadge}</span>}
       </div>
     </div>
   );

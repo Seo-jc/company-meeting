@@ -1,7 +1,38 @@
 import { useEffect, useState } from 'react';
 import { ReleaseNote, RELEASE_NOTES, getNotesAfter } from '../releaseNotes';
+import { localizeNote } from '../releaseNotes';
+import { useT, useLang } from '../i18n';
 
 const SEEN_KEY = 'lastSeenVersion';
+
+const STR = {
+  ko: {
+    updateComplete: '🎉 업데이트 완료',
+    versionChanges: (version: string) => `버전 ${version} 변경 사항`,
+    close: '닫기',
+    closeEsc: '닫기 (Esc)',
+    noChanges: '변경 사항 정보가 없습니다.',
+    currentVersion: '현재 버전',
+    tagAdded: '새 기능',
+    tagFixed: '버그 수정',
+    tagChanged: '변경',
+    showAllHistory: '📋 이전 버전 변경 이력 전부 보기',
+    confirm: '확인',
+  },
+  en: {
+    updateComplete: '🎉 Update complete',
+    versionChanges: (version: string) => `Version ${version} changes`,
+    close: 'Close',
+    closeEsc: 'Close (Esc)',
+    noChanges: 'No changelog information available.',
+    currentVersion: 'Current version',
+    tagAdded: 'New',
+    tagFixed: 'Bug fixes',
+    tagChanged: 'Changed',
+    showAllHistory: '📋 View all previous version history',
+    confirm: 'OK',
+  },
+};
 
 type Props = {
   /** If provided, modal opens for that version on mount. Otherwise auto-detects. */
@@ -10,6 +41,8 @@ type Props = {
 };
 
 export default function WhatsNew({ forceShow, onClose }: Props) {
+  const t = useT(STR);
+  const { lang } = useLang();
   const currentVersion = __APP_VERSION__;
   const [open, setOpen] = useState(false);
   const [notes, setNotes] = useState<ReleaseNote[]>([]);
@@ -79,15 +112,15 @@ export default function WhatsNew({ forceShow, onClose }: Props) {
       <div className="whatsnew-modal" onClick={(e) => e.stopPropagation()}>
         <header className="whatsnew-header">
           <div>
-            <div className="whatsnew-eyebrow">🎉 업데이트 완료</div>
-            <h2>버전 {currentVersion} 변경 사항</h2>
+            <div className="whatsnew-eyebrow">{t.updateComplete}</div>
+            <h2>{t.versionChanges(currentVersion)}</h2>
           </div>
           <button
             type="button"
             className="whatsnew-close"
             onClick={handleClose}
-            aria-label="닫기"
-            title="닫기 (Esc)"
+            aria-label={t.close}
+            title={t.closeEsc}
           >
             ✕
           </button>
@@ -95,9 +128,11 @@ export default function WhatsNew({ forceShow, onClose }: Props) {
 
         <div className="whatsnew-body">
           {notes.length === 0 ? (
-            <p className="whatsnew-empty">변경 사항 정보가 없습니다.</p>
+            <p className="whatsnew-empty">{t.noChanges}</p>
           ) : (
-            notes.map((note, idx) => (
+            notes.map((rawNote, idx) => {
+              const note = localizeNote(rawNote, lang);
+              return (
               <article
                 key={note.version}
                 className={`whatsnew-entry ${idx === 0 ? 'whatsnew-entry-latest' : ''}`}
@@ -105,7 +140,7 @@ export default function WhatsNew({ forceShow, onClose }: Props) {
                 <header className="whatsnew-entry-header">
                   <h3>
                     v{note.version}
-                    {idx === 0 && <span className="whatsnew-current-badge">현재 버전</span>}
+                    {idx === 0 && <span className="whatsnew-current-badge">{t.currentVersion}</span>}
                   </h3>
                   <time>{note.date}</time>
                 </header>
@@ -114,7 +149,7 @@ export default function WhatsNew({ forceShow, onClose }: Props) {
                 )}
                 {note.added && note.added.length > 0 && (
                   <section className="whatsnew-section">
-                    <h4 className="whatsnew-tag whatsnew-tag-added">새 기능</h4>
+                    <h4 className="whatsnew-tag whatsnew-tag-added">{t.tagAdded}</h4>
                     <ul>
                       {note.added.map((item, i) => (
                         <li key={i}>{item}</li>
@@ -124,7 +159,7 @@ export default function WhatsNew({ forceShow, onClose }: Props) {
                 )}
                 {note.fixed && note.fixed.length > 0 && (
                   <section className="whatsnew-section">
-                    <h4 className="whatsnew-tag whatsnew-tag-fixed">버그 수정</h4>
+                    <h4 className="whatsnew-tag whatsnew-tag-fixed">{t.tagFixed}</h4>
                     <ul>
                       {note.fixed.map((item, i) => (
                         <li key={i}>{item}</li>
@@ -134,7 +169,7 @@ export default function WhatsNew({ forceShow, onClose }: Props) {
                 )}
                 {note.changed && note.changed.length > 0 && (
                   <section className="whatsnew-section">
-                    <h4 className="whatsnew-tag whatsnew-tag-changed">변경</h4>
+                    <h4 className="whatsnew-tag whatsnew-tag-changed">{t.tagChanged}</h4>
                     <ul>
                       {note.changed.map((item, i) => (
                         <li key={i}>{item}</li>
@@ -143,7 +178,8 @@ export default function WhatsNew({ forceShow, onClose }: Props) {
                   </section>
                 )}
               </article>
-            ))
+              );
+            })
           )}
 
           {!showAll && notes.length < RELEASE_NOTES.length && (
@@ -155,14 +191,14 @@ export default function WhatsNew({ forceShow, onClose }: Props) {
                 setShowAll(true);
               }}
             >
-              📋 이전 버전 변경 이력 전부 보기
+              {t.showAllHistory}
             </button>
           )}
         </div>
 
         <footer className="whatsnew-footer">
           <button type="button" className="btn btn-primary" onClick={handleClose}>
-            확인
+            {t.confirm}
           </button>
         </footer>
       </div>

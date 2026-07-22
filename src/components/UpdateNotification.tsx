@@ -1,4 +1,34 @@
 import { useEffect, useState } from 'react';
+import { useT } from '../i18n';
+
+const STR = {
+  ko: {
+    checkFailed: '업데이트 확인 실패',
+    close: '닫기',
+    newVersionFound: (version: string) => `새 버전 v${version} 발견`,
+    downloadingBg: '백그라운드에서 다운로드를 시작합니다...',
+    downloading: (versionSuffix: string, pct: number) =>
+      `새 버전${versionSuffix} 다운로드 중... ${pct}%`,
+    ready: (version: string) => `업데이트 준비 완료 · v${version}`,
+    readyDesc: '지금 적용하시면 새 버전으로 즉시 재시작됩니다.',
+    restarting: '재시작 중...',
+    applyNow: '지금 적용',
+    later: '나중에',
+  },
+  en: {
+    checkFailed: 'Update check failed',
+    close: 'Close',
+    newVersionFound: (version: string) => `New version v${version} found`,
+    downloadingBg: 'Starting background download...',
+    downloading: (versionSuffix: string, pct: number) =>
+      `Downloading new version${versionSuffix}... ${pct}%`,
+    ready: (version: string) => `Update ready · v${version}`,
+    readyDesc: 'Applying now will restart immediately with the new version.',
+    restarting: 'Restarting...',
+    applyNow: 'Apply now',
+    later: 'Later',
+  },
+};
 
 type Status =
   | { kind: 'idle' }
@@ -8,6 +38,7 @@ type Status =
   | { kind: 'error'; message: string };
 
 export default function UpdateNotification() {
+  const t = useT(STR);
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   const [dismissed, setDismissed] = useState(false);
   const [applying, setApplying] = useState(false);
@@ -36,10 +67,10 @@ export default function UpdateNotification() {
       <div className="update-banner update-banner-error">
         <span className="update-icon">⚠️</span>
         <div className="update-body">
-          <strong>업데이트 확인 실패</strong>
+          <strong>{t.checkFailed}</strong>
           <small>{status.message}</small>
         </div>
-        <button className="update-close" onClick={() => setDismissed(true)} aria-label="닫기">
+        <button className="update-close" onClick={() => setDismissed(true)} aria-label={t.close}>
           ✕
         </button>
       </div>
@@ -51,8 +82,8 @@ export default function UpdateNotification() {
       <div className="update-banner update-banner-info">
         <span className="update-icon">🔔</span>
         <div className="update-body">
-          <strong>새 버전 v{status.version} 발견</strong>
-          <small>백그라운드에서 다운로드를 시작합니다...</small>
+          <strong>{t.newVersionFound(status.version)}</strong>
+          <small>{t.downloadingBg}</small>
         </div>
       </div>
     );
@@ -65,7 +96,7 @@ export default function UpdateNotification() {
         <span className="update-icon">⬇️</span>
         <div className="update-body">
           <strong>
-            새 버전{status.version ? ` v${status.version}` : ''} 다운로드 중... {pct}%
+            {t.downloading(status.version ? ` v${status.version}` : '', pct)}
           </strong>
           <div className="update-progress-track">
             <div className="update-progress-fill" style={{ width: `${pct}%` }} />
@@ -90,8 +121,8 @@ export default function UpdateNotification() {
     <div className="update-banner update-banner-success">
       <span className="update-icon">✨</span>
       <div className="update-body">
-        <strong>업데이트 준비 완료 · v{status.version}</strong>
-        <small>지금 적용하시면 새 버전으로 즉시 재시작됩니다.</small>
+        <strong>{t.ready(status.version)}</strong>
+        <small>{t.readyDesc}</small>
       </div>
       <div className="update-actions">
         <button
@@ -99,13 +130,13 @@ export default function UpdateNotification() {
           onClick={handleApply}
           disabled={applying}
         >
-          {applying ? '재시작 중...' : '지금 적용'}
+          {applying ? t.restarting : t.applyNow}
         </button>
         <button
           className="btn-small update-later"
           onClick={() => setDismissed(true)}
         >
-          나중에
+          {t.later}
         </button>
       </div>
     </div>
