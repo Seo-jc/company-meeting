@@ -150,33 +150,12 @@ export default {
       return new Response('ok');
     }
 
-    if (url.pathname === '/summarize/status') {
-      return new Response(
-        JSON.stringify({ configured: !!env.GEMINI_API_KEY }),
-        { headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
-      );
-    }
-
-    if (url.pathname === '/summarize/key') {
-      // Returns the API key for client-side Gemini calls.
-      // Workaround: Cloudflare Workers' edge IPs are blocked by Gemini API.
-      // Client calls Gemini directly from user's location (which is supported).
-      const apiKey = (env.GEMINI_API_KEY ?? '').trim();
-      if (!apiKey) {
-        return new Response(
-          JSON.stringify({ error: 'not configured' }),
-          { status: 503, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
-        );
-      }
-      return new Response(
-        JSON.stringify({ key: apiKey }),
-        { headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
-      );
-    }
-
-    if (url.pathname === '/summarize' && request.method === 'POST') {
-      return handleSummarize(request, env);
-    }
+    // ============== AI summary: not wired up ==============
+    // The summary routes are intentionally not exposed. The client must never
+    // receive GEMINI_API_KEY — credentials stay server-side. When this feature
+    // is built for real, call Gemini from the Worker and put the route behind
+    // authentication, the way /api/bugs and /api/presence are.
+    // handleSummarize()/SUMMARY_PROMPT are kept below only as a starting point.
 
     // ============== TURN credentials proxy ==============
     if (url.pathname === '/api/turn-credentials' && request.method === 'GET') {
