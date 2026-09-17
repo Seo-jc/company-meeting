@@ -1,4 +1,4 @@
-import { SignalingClient } from './signaling';
+import { SignalingClient, type AnnotationBody } from './signaling';
 import { sendBugReport } from './bugReporter';
 import { pickT } from '../i18n';
 
@@ -67,10 +67,12 @@ type Callbacks = {
   onPeerLeft: (peerId: string) => void;
   onSync: (validPeerIds: string[]) => void;
   onChat: (msg: ChatMessage) => void;
+  onAnnotation: (msg: { from: string; screenOwnerId: string; body: AnnotationBody }) => void;
   onFileStart: (info: FileStartInfo) => void;
   onFileProgress: (info: { id: string; received: number; size: number }) => void;
   onFileComplete: (info: { id: string; blobUrl: string }) => void;
   onFileFailed: (info: { id: string; reason: string }) => void;
+  onRecording: (info: { from: string; active: boolean }) => void;
 };
 
 type PeerState = {
@@ -291,6 +293,20 @@ export class MeshConnection {
         ts: msg.ts,
       });
     });
+
+    this.signaling.on('annotation', (msg) => {
+      if (msg.from === this.myId) return;
+      this.cb.onAnnotation({
+        from: msg.from,
+        screenOwnerId: msg.screenOwnerId,
+        body: msg.body,
+      });
+    });
+
+    this.signaling.on('recording', (msg) => {
+      if (msg.from === this.myId) return;
+      this.cb.onRecording({ from: msg.from, active: msg.active });
+    });
   }
 
   sendChat(text: string, myName: string) {
@@ -300,6 +316,33 @@ export class MeshConnection {
       fromName: myName,
       text,
       ts: Date.now(),
+    });
+  }
+
+  /**
+   * Relay a screen-annotation action to the room. `screenOwnerId` is the
+   * peerId of whoever's shared screen the marks are drawn on (self or a
+   * peer) — NOT necessarily the sender. The server re-broadcasts this to
+   * every other participant verbatim; it does not echo it back to us, but
+   * bindSignaling()'s 'annotation' handler guards against that anyway.
+   * Throttling to stay under the server's 40 msg/s cap is the caller's job
+   * (see src/lib/annotations.ts createThrottledSender).
+   */
+  sendAnnotation(screenOwnerId: string, body: AnnotationBody) {
+    this.signaling.send({
+      type: 'annotation',
+      from: this.myId,
+      screenOwnerId,
+      body,
+    });
+  }
+
+  /** Broadcasts "I started/stopped recording" so every participant sees a notice. */
+  sendRecording(active: boolean) {
+    this.signaling.send({
+      type: 'recording',
+      from: this.myId,
+      active,
     });
   }
 

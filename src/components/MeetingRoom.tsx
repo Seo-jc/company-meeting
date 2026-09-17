@@ -1,6 +1,7 @@
-import { Fragment, ReactNode, useEffect, useRef, useState } from 'react';
-import { SignalingClient } from '../lib/signaling';
+import { Fragment, ReactNode, RefObject, useCallback, useEffect, useRef, useState } from 'react';
+import { SignalingClient, type AnnotationBody } from '../lib/signaling';
 import { ChatMessage, MeshConnection, RemotePeer } from '../lib/webrtc';
+import { AnnotationHub } from '../lib/annotations';
 import {
   getMicrophone,
   getScreenShareBrowser,
@@ -13,9 +14,24 @@ import ChatPanel from './ChatPanel';
 import ChatTab from './ChatTab';
 import Logo from './Logo';
 import AudioSettingsPopover from './AudioSettingsPopover';
+import AnnotationCanvas from './AnnotationCanvas';
 import { useSpeakingDetection } from '../lib/speakingDetection';
 import { getIceServers } from '../lib/turnCredentials';
 import { useLang, useT } from '../i18n';
+import {
+  AnnotationCompositor,
+  AudioMixer,
+  MeetingRecorder,
+  buildRecordingFileName,
+  createBrowserWriter,
+  createElectronWriter,
+  getEffectiveRecordingDir,
+  isRecordingSupported,
+  pickMimeType,
+  setStoredRecordingDir,
+  type RecordingResult,
+  type RecordingWriter,
+} from '../lib/recorder';
 
 const STR = {
   ko: {
@@ -73,6 +89,29 @@ const STR = {
     listenOnlyBadge: '듣기 전용',
     mutedBadge: '음소거',
     mySharingScreen: '내 화면 (공유 중)',
+    annotate: '주석',
+    noScreenShared: '공유 중인 화면이 없습니다',
+    multiScreenHint: '공유된 화면이 여러 개입니다. 주석을 그릴 화면을 더블클릭해 확대해 주세요.',
+    record: '녹화',
+    recordStop: '녹화 중지',
+    recordBadge: '녹화 중',
+    recordBannerOne: (name: string) => `🔴 ${name}님이 녹화 중입니다`,
+    recordConfirmTitle: '회의를 녹화합니다',
+    recordConfirmBody: '참가자 전원에게 녹화 중임이 표시됩니다. 시작할까요?',
+    recordSaveLocation: '저장 위치',
+    recordChangeFolder: '폴더 변경',
+    recordLoadingFolder: '저장 폴더 확인 중...',
+    recordStart: '녹화 시작',
+    recordCancel: '취소',
+    recordPermissionError: '이 폴더에 쓸 수 없습니다.',
+    recordUseDefaultFolder: '기본 폴더로 재시도',
+    recordUnsupportedError: '이 기기에서는 녹화 기능을 지원하지 않습니다.',
+    recordGenericError: '녹화를 시작할 수 없습니다. 잠시 후 다시 시도해 주세요.',
+    recordErrorPrefix: '녹화 중 오류가 발생하여 중지했습니다: ',
+    recordDoneTitle: '녹화가 저장되었습니다',
+    recordFormatLabel: (label: string) => `형식: ${label}`,
+    recordOpenFolder: '폴더 열기',
+    recordClose: '닫기',
   },
   en: {
     errNoMic:
@@ -129,6 +168,29 @@ const STR = {
     listenOnlyBadge: 'Listen only',
     mutedBadge: 'Muted',
     mySharingScreen: 'My screen (sharing)',
+    annotate: 'Annotate',
+    noScreenShared: 'No screen is being shared',
+    multiScreenHint: 'Multiple screens are shared. Double-click the one you want to annotate to expand it.',
+    record: 'Record',
+    recordStop: 'Stop recording',
+    recordBadge: 'Recording',
+    recordBannerOne: (name: string) => `🔴 ${name} is recording`,
+    recordConfirmTitle: 'Record this meeting',
+    recordConfirmBody: 'All participants will see that the meeting is being recorded. Start now?',
+    recordSaveLocation: 'Save location',
+    recordChangeFolder: 'Change folder',
+    recordLoadingFolder: 'Checking save folder...',
+    recordStart: 'Start recording',
+    recordCancel: 'Cancel',
+    recordPermissionError: "Can't write to this folder.",
+    recordUseDefaultFolder: 'Retry with default folder',
+    recordUnsupportedError: 'Recording is not supported on this device.',
+    recordGenericError: "Couldn't start recording. Please try again.",
+    recordErrorPrefix: 'Recording stopped due to an error: ',
+    recordDoneTitle: 'Recording saved',
+    recordFormatLabel: (label: string) => `Format: ${label}`,
+    recordOpenFolder: 'Open folder',
+    recordClose: 'Close',
   },
 };
 
@@ -217,11 +279,70 @@ export default function MeetingRoom({
   const [myId, setMyId] = useState<string>('');
   const [meetingStartTs] = useState(Date.now());
 
+  // Screen annotation: one shared store for the whole meeting (see src/lib/annotations.ts).
+  // Stable for the component's lifetime — never recreated on re-render.
+  const [hub] = useState(() => new AnnotationHub());
+  const [annotateHint, setAnnotateHint] = useState(false);
+  const annotateHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (annotateHintTimerRef.current) clearTimeout(annotateHintTimerRef.current);
+  }, []);
+  // Tracks each peer's previous "is currently screen-sharing" state so we can detect
+  // transitions at the meeting level (not inside PeerTile — that component remounts
+  // whenever a tile is focused/unfocused, which would otherwise wipe annotations on
+  // every double-click). See auto-delete rules next to this effect below.
+  //
+  // IMPORTANT: this map is mutated in place, never rebuilt from scratch. `peers`
+  // can transiently drop a still-connected participant (e.g. a brief signaling
+  // WebSocket reconnect — see bindSignaling()'s onReconnect in webrtc.ts — makes
+  // the server re-broadcast 'sync' without that peer for a moment, and
+  // onSync's filter() removes them from the array) even though their
+  // RTCPeerConnection/video track never actually changed. If we rebuilt the map
+  // from only the currently-present peers, that momentary absence would erase
+  // our memory of "this peer was already sharing", and their reappearance a
+  // moment later would be misread as a fresh share start — wiping their
+  // in-flight annotations for no real reason. Only reset when we have a firm
+  // BEFORE/AFTER pair that actually disagrees; an unseen peerId (prevHas
+  // undefined) is not a transition.
+  const peerHasVideoRef = useRef<Map<string, boolean>>(new Map());
+  useEffect(() => {
+    const stateMap = peerHasVideoRef.current;
+    for (const p of peers) {
+      const has = p.stream.getVideoTracks().length > 0;
+      const prevHas = stateMap.get(p.peerId);
+      if (prevHas !== undefined && prevHas !== has) {
+        hub.resetOwner(p.peerId);
+      }
+      stateMap.set(p.peerId, has);
+    }
+  }, [peers, hub]);
+  const sendAnnotation = (screenOwnerId: string, body: AnnotationBody) => {
+    meshRef.current?.sendAnnotation(screenOwnerId, body);
+  };
+
   const t = useT(STR);
 
   const meshRef = useRef<MeshConnection | null>(null);
   const signalingRef = useRef<SignalingClient | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+
+  // ----- Recording -----
+  const [recording, setRecording] = useState(false);
+  const [recordingPeerIds, setRecordingPeerIds] = useState<Set<string>>(new Set());
+  const [recordVideoSourceId, setRecordVideoSourceId] = useState<string | null>(null);
+  const [recordingStartTs, setRecordingStartTs] = useState<number | null>(null);
+  const [showRecordConfirm, setShowRecordConfirm] = useState(false);
+  const [recordDir, setRecordDir] = useState<string | null>(null);
+  const [recordConfirmBusy, setRecordConfirmBusy] = useState(false);
+  const [recordConfirmError, setRecordConfirmError] = useState<
+    'permission' | 'unsupported' | 'unknown' | null
+  >(null);
+  const [recordDone, setRecordDone] = useState<RecordingResult | null>(null);
+  const [recordError, setRecordError] = useState<string | null>(null);
+  const recorderRef = useRef<MeetingRecorder | null>(null);
+  const audioMixerRef = useRef<AudioMixer | null>(null);
+  const compositorRef = useRef<AnnotationCompositor | null>(null);
+  const leavingRef = useRef(false);
 
   const unreadChat = chatOpen ? 0 : messages.length - lastReadChatIndex;
 
@@ -271,14 +392,29 @@ export default function MeetingRoom({
                 }
                 return [...prev, peer];
               }),
-            onPeerLeft: (peerId) =>
-              setPeers((prev) => prev.filter((p) => p.peerId !== peerId)),
+            onPeerLeft: (peerId) => {
+              setPeers((prev) => prev.filter((p) => p.peerId !== peerId));
+              hub.resetOwner(peerId);
+              // Peer is really gone (not a transient sync blip) — drop our
+              // "was sharing" memory for them too, so the tracking map in the
+              // effect above doesn't grow unboundedly over a long meeting.
+              peerHasVideoRef.current.delete(peerId);
+              setRecordingPeerIds((prev) => {
+                if (!prev.has(peerId)) return prev;
+                const next = new Set(prev);
+                next.delete(peerId);
+                return next;
+              });
+            },
             onSync: (validPeerIds) => {
               const valid = new Set(validPeerIds);
               setPeers((prev) => prev.filter((p) => valid.has(p.peerId)));
             },
             onChat: (msg) => {
               setMessages((prev) => [...prev, msg]);
+            },
+            onAnnotation: ({ from, screenOwnerId, body }) => {
+              hub.apply(screenOwnerId, from, body);
             },
             onFileStart: ({ id, from, fromName, name, size, mime }) => {
               setMessages((prev) => [
@@ -329,6 +465,14 @@ export default function MeetingRoom({
                 )
               );
             },
+            onRecording: ({ from, active }) => {
+              setRecordingPeerIds((prev) => {
+                const next = new Set(prev);
+                if (active) next.add(from);
+                else next.delete(from);
+                return next;
+              });
+            },
           },
           iceServers
         );
@@ -364,7 +508,7 @@ export default function MeetingRoom({
       signalingRef.current?.close();
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
     };
-  }, [roomCode, displayName, retryNonce, listenOnly]);
+  }, [roomCode, displayName, retryNonce, listenOnly, hub]);
 
   // Speaking detection runs against whatever streams are currently available.
   // MUST be called before any conditional early returns to keep React hook order stable.
@@ -394,6 +538,89 @@ export default function MeetingRoom({
     setPan({ x: 0, y: 0 });
     setDragStart(null);
   }, [expandedId]);
+
+  // ----- Recording: stop/error cleanup (stable refs only, safe as effect deps) -----
+  const handleStopRecording = useCallback(async () => {
+    const rec = recorderRef.current;
+    if (!rec) return;
+    recorderRef.current = null;
+    setRecording(false);
+    setRecordVideoSourceId(null);
+    setRecordingStartTs(null);
+    meshRef.current?.sendRecording(false);
+    // Keep the compositor/mixer feeding the recorder until MediaRecorder has
+    // actually finished flushing, so the last moment before stop isn't a
+    // frozen frame / dropped audio.
+    const result = await rec.stop();
+    compositorRef.current?.stop();
+    compositorRef.current = null;
+    audioMixerRef.current?.close();
+    audioMixerRef.current = null;
+    if (result) setRecordDone(result);
+  }, []);
+
+  const handleRecordingError = useCallback(
+    (message: string) => {
+      console.error('[recording] error', message);
+      setRecordError(t.recordErrorPrefix + message);
+      setTimeout(() => setRecordError(null), 8000);
+      if (!recorderRef.current) return; // a manual stop already claimed cleanup
+      recorderRef.current = null;
+      setRecording(false);
+      setRecordVideoSourceId(null);
+      setRecordingStartTs(null);
+      meshRef.current?.sendRecording(false);
+      compositorRef.current?.stop();
+      compositorRef.current = null;
+      audioMixerRef.current?.close();
+      audioMixerRef.current = null;
+      window.electronAPI?.stopRecording().catch(() => {
+        // best-effort — handle may already be closed
+      });
+    },
+    [t]
+  );
+
+  // Requirement: if the specific screen being recorded stops sharing (or the
+  // peer sharing it leaves), end the recording safely and keep what's captured
+  // so far — never let a dangling recording run silently with no video.
+  useEffect(() => {
+    if (!recording || !recordVideoSourceId) return;
+    if (recordVideoSourceId === SCREEN_SELF_ID) {
+      if (!screenStream) void handleStopRecording();
+      return;
+    }
+    const peer = peers.find((p) => p.peerId === recordVideoSourceId);
+    if (!peer || peer.stream.getVideoTracks().length === 0) {
+      void handleStopRecording();
+    }
+  }, [recording, recordVideoSourceId, screenStream, peers, handleStopRecording]);
+
+  // Requirement: participants joining/leaving mid-recording must be reflected
+  // in the audio mix live. No-op while not recording (mixer ref is null).
+  useEffect(() => {
+    audioMixerRef.current?.updatePeers(peers.map((p) => ({ peerId: p.peerId, stream: p.stream })));
+  }, [peers]);
+
+  // Best-effort safety net for an abrupt unmount (e.g. window close) while
+  // recording: close the Electron file handle so it isn't left dangling.
+  // The graceful path (leave button) is handled by handleLeaveClick instead,
+  // which awaits a full stop()+finish() before navigating away.
+  useEffect(() => {
+    return () => {
+      if (recorderRef.current) {
+        recorderRef.current.abort();
+        recorderRef.current = null;
+        compositorRef.current?.stop();
+        compositorRef.current = null;
+        audioMixerRef.current?.close();
+        audioMixerRef.current = null;
+        window.electronAPI?.stopRecording().catch(() => {
+          // best-effort
+        });
+      }
+    };
+  }, []);
 
   const handleRetry = () => {
     setListenOnly(false);
@@ -425,10 +652,11 @@ export default function MeetingRoom({
       meshRef.current?.stopScreenShare();
       setScreenStream(null);
       setSharing(false);
+      hub.resetOwner(myId);
     };
     videoTrack.addEventListener('ended', onEnded);
     return () => videoTrack.removeEventListener('ended', onEnded);
-  }, [screenStream]);
+  }, [screenStream, hub, myId]);
 
   useEffect(() => {
     if (!expandedId) return;
@@ -476,6 +704,8 @@ export default function MeetingRoom({
       ]);
       localStreamRef.current = newLocalStream;
       newTrack.enabled = !muted;
+      // Keep an in-progress recording's audio mix pointed at the live mic track.
+      audioMixerRef.current?.setLocalStream(newLocalStream);
     } catch (e) {
       console.error('[mic-switch] failed', e);
     }
@@ -493,6 +723,8 @@ export default function MeetingRoom({
   };
 
   const startSharing = async (stream: MediaStream) => {
+    // Clear any leftover marks from a previous share under this same peerId.
+    hub.resetOwner(myId);
     await meshRef.current?.startScreenShare(stream);
     setScreenStream(stream);
     setSharing(true);
@@ -513,6 +745,7 @@ export default function MeetingRoom({
       screenStream?.getTracks().forEach((t) => t.stop());
       setScreenStream(null);
       setSharing(false);
+      hub.resetOwner(myId);
       return;
     }
 
@@ -749,6 +982,9 @@ export default function MeetingRoom({
           stream={screenStream}
           focused={expandedId === SCREEN_SELF_ID}
           onDoubleClick={() => toggleExpand(SCREEN_SELF_ID)}
+          myId={myId}
+          hub={hub}
+          sendAnnotation={sendAnnotation}
         />
       ),
     });
@@ -763,9 +999,20 @@ export default function MeetingRoom({
           speaking={isSpeaking}
           focused={expandedId === peer.peerId}
           onDoubleClick={() => toggleExpand(peer.peerId)}
+          myId={myId}
+          hub={hub}
+          sendAnnotation={sendAnnotation}
         />
       ),
     });
+  }
+
+  // Screens currently shared by anyone in the room (self and/or peers), used to
+  // gate/drive the "주석" (Annotate) control-bar button.
+  const activeScreenIds: string[] = [];
+  if (screenStream) activeScreenIds.push(SCREEN_SELF_ID);
+  for (const peer of peers) {
+    if (peer.stream.getVideoTracks().length > 0) activeScreenIds.push(peer.peerId);
   }
 
   const focusedTile = expandedId
@@ -819,8 +1066,218 @@ export default function MeetingRoom({
     setPan({ x: 0, y: 0 });
   };
 
+  // "주석" control-bar button: if a shared screen is already focused, the toolbar
+  // (rendered by AnnotationCanvas inside that tile) is already showing — nothing
+  // to do. Otherwise, auto-focus the one shared screen, or hint the user to pick
+  // one themselves (via the existing double-click-to-expand gesture) when there's
+  // more than one.
+  const handleAnnotateClick = () => {
+    if (activeScreenIds.length === 0) return;
+    if (focusHasVideo) return;
+    if (activeScreenIds.length === 1) {
+      setExpandedId(activeScreenIds[0]);
+    } else {
+      setAnnotateHint(true);
+      if (annotateHintTimerRef.current) clearTimeout(annotateHintTimerRef.current);
+      annotateHintTimerRef.current = setTimeout(() => setAnnotateHint(false), 4000);
+    }
+  };
+
+  // ----- Recording: which screen to capture -----
+  // Priority 1: whichever screen is currently focused/expanded (explicitly
+  // "the screen you're looking at"). Priority 2: if exactly one screen is
+  // shared in the room, that's the obvious default even when nothing is
+  // focused. Otherwise (no screen shared, or several shared with none
+  // focused) falls back to audio-only.
+  const pickRecordingVideoSelection = (): { sourceId: string; track: MediaStreamTrack } | null => {
+    if (expandedId && focusHasVideo) {
+      if (expandedId === SCREEN_SELF_ID && screenStream) {
+        const track = screenStream.getVideoTracks()[0];
+        if (track) return { sourceId: SCREEN_SELF_ID, track };
+      } else {
+        const peer = peers.find((p) => p.peerId === expandedId);
+        const track = peer?.stream.getVideoTracks()[0];
+        if (track) return { sourceId: expandedId, track };
+      }
+    }
+    if (activeScreenIds.length === 1) {
+      const id = activeScreenIds[0];
+      if (id === SCREEN_SELF_ID && screenStream) {
+        const track = screenStream.getVideoTracks()[0];
+        if (track) return { sourceId: SCREEN_SELF_ID, track };
+      } else {
+        const peer = peers.find((p) => p.peerId === id);
+        const track = peer?.stream.getVideoTracks()[0];
+        if (track) return { sourceId: id, track };
+      }
+    }
+    return null;
+  };
+
+  const handleRecordClick = async () => {
+    if (recording) {
+      await handleStopRecording();
+      return;
+    }
+    setRecordConfirmError(null);
+    setRecordDir(null);
+    setShowRecordConfirm(true);
+    if (isElectron) {
+      const dir = await getEffectiveRecordingDir();
+      setRecordDir(dir);
+    }
+  };
+
+  const handleChangeFolder = async () => {
+    setRecordConfirmBusy(true);
+    try {
+      const chosen = await window.electronAPI?.chooseRecordingFolder(recordDir ?? undefined);
+      if (chosen) {
+        setStoredRecordingDir(chosen);
+        setRecordDir(chosen);
+        setRecordConfirmError(null);
+      }
+    } catch (err) {
+      console.error('[recording] choose folder failed', err);
+    } finally {
+      setRecordConfirmBusy(false);
+    }
+  };
+
+  const startRecordingFlow = async (dir: string | null): Promise<void> => {
+    if (!isRecordingSupported()) {
+      setRecordConfirmError('unsupported');
+      return;
+    }
+
+    const selection = pickRecordingVideoSelection();
+    const hasVideo = !!selection;
+    const mimeType = pickMimeType(hasVideo);
+    const fileName = buildRecordingFileName(roomCode, mimeType);
+
+    // Composite the shared screen + live annotations onto an offscreen canvas
+    // BEFORE touching disk, so a compositor failure (e.g. captureStream
+    // unsupported) never leaves a stray empty file behind.
+    let compositor: AnnotationCompositor | null = null;
+    let compositedVideoTrack: MediaStreamTrack | null = null;
+    if (selection) {
+      const hubOwnerId = selection.sourceId === SCREEN_SELF_ID ? myId : selection.sourceId;
+      compositor = new AnnotationCompositor({
+        sourceTrack: selection.track,
+        hub,
+        ownerId: hubOwnerId,
+        fps: 20,
+        maxWidth: 2560,
+      });
+      try {
+        compositedVideoTrack = await compositor.start();
+      } catch (err) {
+        console.error('[recording] compositor start failed', err);
+        compositor.stop();
+        setRecordConfirmError('unknown');
+        return;
+      }
+    }
+
+    let writer: RecordingWriter;
+    if (isElectron) {
+      if (!dir) {
+        compositor?.stop();
+        setRecordConfirmError('unknown');
+        return;
+      }
+      const res = await createElectronWriter(dir, fileName);
+      if (!res.ok) {
+        compositor?.stop();
+        setRecordConfirmError(res.error);
+        return;
+      }
+      writer = res.writer;
+    } else {
+      writer = createBrowserWriter(fileName, mimeType);
+    }
+
+    const mixer = new AudioMixer();
+    mixer.setLocalStream(localStreamRef.current);
+    mixer.updatePeers(peers.map((p) => ({ peerId: p.peerId, stream: p.stream })));
+
+    const rec = new MeetingRecorder();
+    const startRes = rec.start({
+      audioMixer: mixer,
+      videoTrack: compositedVideoTrack,
+      writer,
+      mimeType,
+      timesliceMs: 1000,
+      onError: handleRecordingError,
+    });
+    if (!startRes.ok) {
+      console.error('[recording] start failed', startRes.message);
+      mixer.close();
+      compositor?.stop();
+      writer.abort();
+      setRecordConfirmError('unknown');
+      return;
+    }
+
+    recorderRef.current = rec;
+    audioMixerRef.current = mixer;
+    compositorRef.current = compositor;
+    setRecordVideoSourceId(selection?.sourceId ?? null);
+    setRecordingStartTs(Date.now());
+    setRecording(true);
+    setShowRecordConfirm(false);
+    meshRef.current?.sendRecording(true);
+  };
+
+  const handleConfirmStart = async () => {
+    setRecordConfirmBusy(true);
+    try {
+      await startRecordingFlow(recordDir);
+    } finally {
+      setRecordConfirmBusy(false);
+    }
+  };
+
+  const handleUseDefaultFolder = async () => {
+    setRecordConfirmBusy(true);
+    setRecordConfirmError(null);
+    try {
+      const def = await window.electronAPI?.getDefaultRecordingFolder();
+      if (!def) {
+        setRecordConfirmError('unknown');
+        return;
+      }
+      setStoredRecordingDir(def);
+      setRecordDir(def);
+      await startRecordingFlow(def);
+    } finally {
+      setRecordConfirmBusy(false);
+    }
+  };
+
+  const handleCancelRecordConfirm = () => {
+    setShowRecordConfirm(false);
+    setRecordConfirmError(null);
+  };
+
+  const handleLeaveClick = async () => {
+    if (leavingRef.current) return;
+    leavingRef.current = true;
+    if (recorderRef.current) {
+      await handleStopRecording();
+    }
+    onLeave();
+  };
+
+  const recordingPeerNames = peers
+    .filter((p) => recordingPeerIds.has(p.peerId))
+    .map((p) => p.displayName);
+
   return (
     <div className={`meeting ${chatOpen ? 'chat-open' : ''}`}>
+      {recording && recordingStartTs !== null && (
+        <RecordingBadge startTs={recordingStartTs} />
+      )}
       <header className="meeting-header">
         <div className="meeting-header-brand">
           <Logo size="sm" showWordmark={false} />
@@ -870,6 +1327,13 @@ export default function MeetingRoom({
         </div>
       )}
       {shareError && <div className="banner banner-error">{shareError}</div>}
+      {recordError && <div className="banner banner-error">{recordError}</div>}
+      {annotateHint && <div className="banner banner-info">{t.multiScreenHint}</div>}
+      {recordingPeerNames.length > 0 && (
+        <div className="banner banner-recording">
+          {recordingPeerNames.map((name) => t.recordBannerOne(name)).join(' · ')}
+        </div>
+      )}
 
       <main className={`meeting-area ${expandedId ? 'has-focus' : ''}`}>
         {focusedTile && (
@@ -987,6 +1451,29 @@ export default function MeetingRoom({
         </div>
         <div className="control-item">
           <button
+            className={`btn-circle ${focusHasVideo ? 'btn-active' : ''} ${
+              activeScreenIds.length === 0 ? 'btn-disabled' : ''
+            }`}
+            onClick={handleAnnotateClick}
+            disabled={activeScreenIds.length === 0}
+            title={activeScreenIds.length === 0 ? t.noScreenShared : t.annotate}
+          >
+            🖊️
+          </button>
+          <span className="control-label">{t.annotate}</span>
+        </div>
+        <div className="control-item">
+          <button
+            className={`btn-circle ${recording ? 'btn-danger' : ''}`}
+            onClick={handleRecordClick}
+            title={recording ? t.recordStop : t.record}
+          >
+            {recording ? '⏹️' : '⏺️'}
+          </button>
+          <span className="control-label">{recording ? t.recordStop : t.record}</span>
+        </div>
+        <div className="control-item">
+          <button
             className={`btn-circle ${chatOpen ? 'btn-active' : ''}`}
             onClick={() => setChatOpen((v) => !v)}
             title={chatOpen ? t.chatClose : t.chatOpen}
@@ -1001,7 +1488,7 @@ export default function MeetingRoom({
           <span className="control-label">{t.chat}</span>
         </div>
         <div className="control-item">
-          <button className="btn-circle btn-leave" onClick={onLeave} title={t.leave}>
+          <button className="btn-circle btn-leave" onClick={handleLeaveClick} title={t.leave}>
             📞
           </button>
           <span className="control-label">{t.leave}</span>
@@ -1025,6 +1512,194 @@ export default function MeetingRoom({
           onCancel={() => setShowPicker(false)}
         />
       )}
+
+      {showRecordConfirm && (
+        <RecordConfirmDialog
+          dir={recordDir}
+          busy={recordConfirmBusy}
+          error={recordConfirmError}
+          onChangeFolder={handleChangeFolder}
+          onUseDefaultFolder={handleUseDefaultFolder}
+          onConfirm={handleConfirmStart}
+          onCancel={handleCancelRecordConfirm}
+        />
+      )}
+
+      {recordDone && (
+        <RecordDoneDialog result={recordDone} onClose={() => setRecordDone(null)} />
+      )}
+    </div>
+  );
+}
+
+function RecordingBadge({ startTs }: { startTs: number }) {
+  const [now, setNow] = useState(Date.now());
+  const t = useT(STR);
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const sec = Math.max(0, Math.floor((now - startTs) / 1000));
+  const mm = String(Math.floor(sec / 60)).padStart(2, '0');
+  const ss = String(sec % 60).padStart(2, '0');
+
+  return (
+    <div className="recording-badge" role="status">
+      <span className="recording-dot" aria-hidden="true" />
+      {t.recordBadge} {mm}:{ss}
+    </div>
+  );
+}
+
+function RecordConfirmDialog({
+  dir,
+  busy,
+  error,
+  onChangeFolder,
+  onUseDefaultFolder,
+  onConfirm,
+  onCancel,
+}: {
+  dir: string | null;
+  busy: boolean;
+  error: 'permission' | 'unsupported' | 'unknown' | null;
+  onChangeFolder: () => void;
+  onUseDefaultFolder: () => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const t = useT(STR);
+  const showFolderRow = isElectron;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onCancel]);
+
+  return (
+    <div className="bug-modal-backdrop" onClick={onCancel} role="dialog" aria-modal="true">
+      <div className="bug-modal" style={{ maxWidth: 440 }} onClick={(e) => e.stopPropagation()}>
+        <header className="bug-modal-header">
+          <div>
+            <h2>{t.recordConfirmTitle}</h2>
+          </div>
+          <button className="bug-modal-close" onClick={onCancel} aria-label={t.recordCancel}>
+            ✕
+          </button>
+        </header>
+        <div className="record-confirm-body">
+          <p className="record-confirm-text">{t.recordConfirmBody}</p>
+          {showFolderRow && (
+            <div className="record-folder-row">
+              <div className="record-folder-info">
+                <span className="record-folder-label">{t.recordSaveLocation}</span>
+                <span className="record-folder-path" title={dir ?? ''}>
+                  {dir ?? t.recordLoadingFolder}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="btn-small"
+                onClick={onChangeFolder}
+                disabled={busy}
+              >
+                {t.recordChangeFolder}
+              </button>
+            </div>
+          )}
+          {error === 'permission' && (
+            <div className="banner banner-error record-confirm-error">
+              {t.recordPermissionError}
+              <button
+                type="button"
+                className="btn-small"
+                onClick={onUseDefaultFolder}
+                disabled={busy}
+              >
+                {t.recordUseDefaultFolder}
+              </button>
+            </div>
+          )}
+          {error === 'unsupported' && (
+            <div className="banner banner-error record-confirm-error">
+              {t.recordUnsupportedError}
+            </div>
+          )}
+          {error === 'unknown' && (
+            <div className="banner banner-error record-confirm-error">
+              {t.recordGenericError}
+            </div>
+          )}
+        </div>
+        <div className="record-confirm-actions">
+          <button type="button" className="btn" onClick={onCancel} disabled={busy}>
+            {t.recordCancel}
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={onConfirm}
+            disabled={busy || (showFolderRow && !dir)}
+          >
+            {t.recordStart}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RecordDoneDialog({
+  result,
+  onClose,
+}: {
+  result: RecordingResult;
+  onClose: () => void;
+}) {
+  const t = useT(STR);
+  const format = (result.fileName.split('.').pop() || '').toUpperCase();
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div className="bug-modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
+      <div className="bug-modal" style={{ maxWidth: 440 }} onClick={(e) => e.stopPropagation()}>
+        <header className="bug-modal-header">
+          <div>
+            <h2>{t.recordDoneTitle}</h2>
+            <div className="bug-modal-subtitle" title={result.filePath ?? result.fileName}>
+              {result.fileName}
+            </div>
+          </div>
+          <button className="bug-modal-close" onClick={onClose} aria-label={t.recordClose}>
+            ✕
+          </button>
+        </header>
+        <div className="record-confirm-body">
+          {format && <p className="record-confirm-text">{t.recordFormatLabel(format)}</p>}
+        </div>
+        <div className="record-confirm-actions">
+          {result.openFolder && (
+            <button type="button" className="btn btn-primary" onClick={result.openFolder}>
+              {t.recordOpenFolder}
+            </button>
+          )}
+          <button type="button" className="btn" onClick={onClose}>
+            {t.recordClose}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1101,12 +1776,19 @@ function SelfScreenTile({
   stream,
   focused,
   onDoubleClick,
+  myId,
+  hub,
+  sendAnnotation,
 }: {
   stream: MediaStream;
   focused?: boolean;
   onDoubleClick?: () => void;
+  myId: string;
+  hub: AnnotationHub;
+  sendAnnotation: (screenOwnerId: string, body: AnnotationBody) => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const tileRef = useRef<HTMLDivElement>(null);
   const t = useT(STR);
 
   useEffect(() => {
@@ -1115,11 +1797,21 @@ function SelfScreenTile({
 
   return (
     <div
+      ref={tileRef}
       className={`tile tile-screen-preview ${focused ? 'tile-focused' : ''}`}
       onDoubleClick={onDoubleClick}
       title={t.dblClickExpand}
     >
       <video ref={videoRef} autoPlay playsInline muted />
+      <AnnotationCanvas
+        screenOwnerId={myId}
+        myId={myId}
+        videoRef={videoRef}
+        tileRef={tileRef as RefObject<HTMLElement>}
+        hub={hub}
+        focused={!!focused}
+        sendAnnotation={sendAnnotation}
+      />
       <div className="tile-name">{t.mySharingScreen}</div>
     </div>
   );
@@ -1130,14 +1822,21 @@ function PeerTile({
   speaking,
   focused,
   onDoubleClick,
+  myId,
+  hub,
+  sendAnnotation,
 }: {
   peer: RemotePeer;
   speaking: boolean;
   focused?: boolean;
   onDoubleClick?: () => void;
+  myId: string;
+  hub: AnnotationHub;
+  sendAnnotation: (screenOwnerId: string, body: AnnotationBody) => void;
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const tileRef = useRef<HTMLDivElement>(null);
   const [hasVideo, setHasVideo] = useState(false);
   const t = useT(STR);
 
@@ -1164,13 +1863,25 @@ function PeerTile({
 
   return (
     <div
+      ref={tileRef}
       className={`tile ${focused ? 'tile-focused' : ''} ${speaking ? 'tile-speaking' : ''}`}
       onDoubleClick={onDoubleClick}
       title={t.dblClickExpand}
     >
       <audio ref={audioRef} autoPlay />
       {hasVideo ? (
-        <video ref={videoRef} autoPlay playsInline muted />
+        <>
+          <video ref={videoRef} autoPlay playsInline muted />
+          <AnnotationCanvas
+            screenOwnerId={peer.peerId}
+            myId={myId}
+            videoRef={videoRef}
+            tileRef={tileRef as RefObject<HTMLElement>}
+            hub={hub}
+            focused={!!focused}
+            sendAnnotation={sendAnnotation}
+          />
+        </>
       ) : (
         <div className="tile-avatar">{peer.displayName.slice(0, 1).toUpperCase()}</div>
       )}

@@ -43,6 +43,22 @@ declare global {
             | { kind: 'error'; message: string }
         ) => void
       ) => () => void;
+      getDefaultRecordingFolder: () => Promise<string>;
+      chooseRecordingFolder: (currentDir?: string) => Promise<string | null>;
+      startRecording: (
+        dir: string,
+        fileName: string
+      ) => Promise<
+        | { ok: true; filePath: string }
+        | { ok: false; error: 'permission' | 'unknown'; message: string }
+      >;
+      appendRecordingChunk: (
+        chunk: ArrayBuffer
+      ) => Promise<{ ok: true } | { ok: false; message: string }>;
+      stopRecording: () => Promise<
+        { ok: true; filePath: string } | { ok: false; message: string }
+      >;
+      openRecordingFolder: (filePath: string) => Promise<void>;
       platform: string;
     };
   }

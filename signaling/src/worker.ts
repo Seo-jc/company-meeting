@@ -26,6 +26,54 @@ function maskIp(ip: string | null): string {
   return ip;
 }
 
+/** Ceiling on annotation messages per connection per second. */
+const ANNOTATION_MAX_PER_SEC = 40;
+const ANNOTATION_KINDS = ['point', 'stroke', 'shape', 'text', 'clear', 'permission'];
+const ANNOTATION_MAX_POINTS = 800;
+const ANNOTATION_MAX_TEXT = 200;
+
+/** A normalized coordinate: a finite number inside the video frame. */
+function isUnit(n: unknown): boolean {
+  return typeof n === 'number' && Number.isFinite(n) && n >= 0 && n <= 1;
+}
+
+/**
+ * Annotations are relayed untouched, so anything malformed is dropped here
+ * rather than left for every client to defend against.
+ */
+function isValidAnnotation(msg: any): boolean {
+  if (typeof msg.screenOwnerId !== 'string' || !msg.screenOwnerId) return false;
+  const body = msg.body;
+  if (!body || typeof body !== 'object') return false;
+  if (!ANNOTATION_KINDS.includes(body.kind)) return false;
+
+  switch (body.kind) {
+    case 'point':
+      return isUnit(body.x) && isUnit(body.y);
+    case 'stroke':
+      if (typeof body.id !== 'string') return false;
+      if (body.phase !== 'update' && body.phase !== 'end') return false;
+      if (!Array.isArray(body.pts)) return false;
+      if (body.pts.length === 0 || body.pts.length % 2 !== 0) return false;
+      if (body.pts.length > ANNOTATION_MAX_POINTS * 2) return false;
+      return body.pts.every(isUnit);
+    case 'shape':
+      if (typeof body.id !== 'string') return false;
+      if (body.tool !== 'arrow' && body.tool !== 'rect') return false;
+      return isUnit(body.x1) && isUnit(body.y1) && isUnit(body.x2) && isUnit(body.y2);
+    case 'text':
+      if (typeof body.id !== 'string') return false;
+      if (typeof body.text !== 'string' || body.text.length > ANNOTATION_MAX_TEXT) return false;
+      return isUnit(body.x) && isUnit(body.y);
+    case 'clear':
+      return body.scope === 'mine' || body.scope === 'all';
+    case 'permission':
+      return typeof body.allowed === 'boolean';
+    default:
+      return false;
+  }
+}
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -413,6 +461,8 @@ export class Room {
   private roomCode = '';
   // Temporary geo holding for connections that haven't sent 'hello' yet.
   private pendingGeo: Geo | null = null;
+  // Annotation flood protection, per connection. Cleared when the socket closes.
+  private annotationRate = new Map<WebSocket, { count: number; windowStart: number }>();
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -663,6 +713,44 @@ export class Room {
       this.broadcastExcept(ws, msg);
       return;
     }
+
+    // Screen annotations. Relayed rather than stored, like chat: a peer joining
+    // later does not see marks drawn before it arrived.
+    if (msg.type === 'annotation') {
+      if (!this.allowAnnotation(ws)) return;
+      // The sender does not get to claim someone else's identity.
+      const att = this.getAttachment(ws);
+      if (!att?.peerId || msg.from !== att.peerId) return;
+      if (!isValidAnnotation(msg)) return;
+      this.broadcastExcept(ws, msg);
+      return;
+    }
+
+    // Someone started or stopped recording. Everyone in the room is told, so
+    // nobody is recorded without a visible indicator.
+    if (msg.type === 'recording') {
+      const att = this.getAttachment(ws);
+      if (!att?.peerId || msg.from !== att.peerId) return;
+      if (typeof msg.active !== 'boolean') return;
+      this.broadcastExcept(ws, { type: 'recording', from: msg.from, active: msg.active });
+      return;
+    }
+  }
+
+  /**
+   * Per-connection cap on annotation messages. Clients throttle themselves well
+   * below this; the cap only stops a runaway or hostile sender.
+   */
+  private allowAnnotation(ws: WebSocket): boolean {
+    const now = Date.now();
+    const bucket = this.annotationRate.get(ws);
+    if (!bucket || now - bucket.windowStart >= 1000) {
+      this.annotationRate.set(ws, { count: 1, windowStart: now });
+      return true;
+    }
+    if (bucket.count >= ANNOTATION_MAX_PER_SEC) return false;
+    bucket.count++;
+    return true;
   }
 
   async webSocketClose(
@@ -673,6 +761,7 @@ export class Room {
   ) {
     const att = this.getAttachment(ws);
     console.log('[Room] webSocketClose', { code, reason, wasClean, peerId: att?.peerId });
+    this.annotationRate.delete(ws);
     if (att) {
       const durationMs = att.connectedAt ? Date.now() - att.connectedAt : 0;
       void this.reportPresence('leave', {

@@ -2498,7 +2498,9 @@ input {
 
 /* Zoomable focus area: scale & pan applied to video/screen content */
 .focus-area-zoomable .tile video,
-.focus-area-zoomable .tile-screen-preview video {
+.focus-area-zoomable .tile-screen-preview video,
+.focus-area-zoomable .tile canvas.annotation-layer,
+.focus-area-zoomable .tile-screen-preview canvas.annotation-layer {
   transform: translate(var(--pan-x, 0px), var(--pan-y, 0px)) scale(var(--zoom, 1));
   transform-origin: center center;
   will-change: transform;
@@ -3335,6 +3337,127 @@ input {
   color: #fff;
 }
 
+.banner-recording {
+  background: #3a1414;
+  color: #ffb4b4;
+  border-bottom: 1px solid #5a1f1f;
+  font-weight: 600;
+}
+
+/* ---------- Recording ---------- */
+.recording-badge {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(20, 22, 27, 0.92);
+  border: 1px solid #ef6868;
+  color: #ffb4b4;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.recording-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: recording-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes recording-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.record-confirm-body {
+  padding: 1.1rem 1.4rem 0.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.record-confirm-text {
+  margin: 0;
+  color: #cdd1d8;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.record-confirm-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  text-align: left;
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+
+.record-confirm-error .btn-small {
+  flex-shrink: 0;
+}
+
+.record-folder-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  background: #14161b;
+  border: 1px solid #2a2e36;
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+}
+
+.record-folder-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.record-folder-label {
+  font-size: 0.7rem;
+  color: #888c95;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.record-folder-path {
+  font-size: 0.82rem;
+  color: #cdd1d8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.record-confirm-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.6rem;
+  padding: 0.65rem 1.4rem 1.3rem;
+  border-top: 1px solid #2a2e36;
+}
+
+.record-confirm-actions .btn {
+  min-width: 100px;
+}
+
 .banner-info {
   background: #1f3a4d;
   color: #7fd0ff;
@@ -3586,4 +3709,142 @@ input {
 
 .btn-circle.btn-leave:hover {
   background: #ec4848;
+}
+
+/* ---------- Screen annotation ---------- */
+.tile canvas.annotation-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.tile canvas.annotation-layer.drawing-active {
+  pointer-events: auto;
+  cursor: crosshair;
+}
+
+.annotation-toolbar {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 4px 6px;
+  z-index: 6;
+  backdrop-filter: blur(8px);
+  max-width: calc(100% - 28px);
+}
+
+.annotation-toolbar button {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  border: 1.5px solid transparent;
+  background: transparent;
+  color: #e8e8ea;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  flex: 0 0 auto;
+}
+
+.annotation-toolbar button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.annotation-toolbar button.active {
+  border-color: var(--annotation-my-color, #4f7df3);
+  background: var(--annotation-my-color-bg, rgba(79, 125, 243, 0.18));
+}
+
+.annotation-toolbar-divider {
+  width: 1px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.15);
+  margin: 0 2px;
+  flex: 0 0 auto;
+}
+
+.annotation-color-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.4);
+}
+
+.annotation-lock-msg {
+  font-size: 0.8rem;
+  color: #e8e8ea;
+  padding: 0 0.5rem;
+  white-space: nowrap;
+}
+
+.annotation-eraser {
+  position: relative;
+  display: flex;
+}
+
+.annotation-eraser-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: rgba(20, 22, 27, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 6px;
+  z-index: 7;
+  min-width: 170px;
+  backdrop-filter: blur(8px);
+}
+
+.annotation-eraser-menu button {
+  width: auto;
+  height: auto;
+  border-radius: 5px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  text-align: left;
+  justify-content: flex-start;
+  border: none;
+  color: #e8e8ea;
+  background: transparent;
+}
+
+.annotation-eraser-menu button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.annotation-eraser-menu button.danger {
+  color: #ff8a8a;
+}
+
+.annotation-text-input {
+  position: absolute;
+  z-index: 6;
+  font-size: 0.85rem;
+  padding: 0.25rem 0.45rem;
+  border-radius: 5px;
+  border: 1.5px solid var(--annotation-my-color, #4f7df3);
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  outline: none;
+  max-width: 220px;
 }

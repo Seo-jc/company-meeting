@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, desktopCapturer, session, dialog, shell } from 'electron';
 import { join } from 'path';
 import { promises as fsp } from 'fs';
+import type { FileHandle } from 'fs/promises';
 import * as os from 'os';
 import { autoUpdater } from 'electron-updater';
 
@@ -207,6 +208,9 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  // Best-effort: if the window closed while a recording was still open,
+  // close the file handle so the partial recording isn't left dangling.
+  void closeActiveRecordingHandle();
   if (process.platform !== 'darwin') app.quit();
 });
 
@@ -243,4 +247,119 @@ ipcMain.handle('apply-update', async () => {
   // Defer slightly so the IPC reply is returned to the renderer before quit.
   // Args: isSilent=true (no installer wizard), isForceRunAfter=true (auto-relaunch).
   setTimeout(() => autoUpdater.quitAndInstall(true, true), 200);
+});
+
+// ---------------------------------------------------------------------------
+// Meeting recording: the renderer records into ~1s MediaRecorder chunks and
+// streams each one here to append to disk (never held entirely in renderer
+// memory — a 1-hour meeting would otherwise be hundreds of MB to ~1GB).
+// Only one recording is supported at a time (one meeting window per app).
+// ---------------------------------------------------------------------------
+
+function defaultRecordingDir(): string {
+  return join(os.homedir(), 'Downloads', 'PikMeeting');
+}
+
+let activeRecordingHandle: FileHandle | null = null;
+let activeRecordingPath: string | null = null;
+
+async function closeActiveRecordingHandle(): Promise<void> {
+  if (!activeRecordingHandle) return;
+  try {
+    await activeRecordingHandle.close();
+  } catch (err) {
+    console.warn('[recording] close on cleanup failed', err);
+  }
+  activeRecordingHandle = null;
+  activeRecordingPath = null;
+}
+
+ipcMain.handle('recording-get-default-folder', async () => defaultRecordingDir());
+
+ipcMain.handle(
+  'recording-choose-folder',
+  async (_event, currentDir?: string): Promise<string | null> => {
+    if (!mainWindow) return null;
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openDirectory', 'createDirectory'],
+      defaultPath: currentDir || defaultRecordingDir(),
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return result.filePaths[0];
+  }
+);
+
+ipcMain.handle(
+  'recording-start',
+  async (
+    _event,
+    payload: { dir: string; fileName: string }
+  ): Promise<
+    | { ok: true; filePath: string }
+    | { ok: false; error: 'permission' | 'unknown'; message: string }
+  > => {
+    // Defensive: a previous recording should always have been closed via
+    // recording-stop, but never leak/overwrite a still-open handle.
+    await closeActiveRecordingHandle();
+
+    const { dir, fileName } = payload;
+    const filePath = join(dir, fileName);
+    try {
+      await fsp.mkdir(dir, { recursive: true });
+      const handle = await fsp.open(filePath, 'w');
+      activeRecordingHandle = handle;
+      activeRecordingPath = filePath;
+      return { ok: true, filePath };
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException)?.code;
+      const kind: 'permission' | 'unknown' =
+        code === 'EACCES' || code === 'EPERM' || code === 'EROFS' ? 'permission' : 'unknown';
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[recording] start failed', err);
+      return { ok: false, error: kind, message };
+    }
+  }
+);
+
+ipcMain.handle(
+  'recording-chunk',
+  async (_event, chunk: ArrayBuffer): Promise<{ ok: true } | { ok: false; message: string }> => {
+    if (!activeRecordingHandle) {
+      return { ok: false, message: 'no active recording' };
+    }
+    try {
+      await activeRecordingHandle.write(Buffer.from(chunk));
+      return { ok: true };
+    } catch (err) {
+      console.error('[recording] chunk write failed', err);
+      await closeActiveRecordingHandle();
+      const message = err instanceof Error ? err.message : String(err);
+      return { ok: false, message };
+    }
+  }
+);
+
+ipcMain.handle(
+  'recording-stop',
+  async (): Promise<{ ok: true; filePath: string } | { ok: false; message: string }> => {
+    if (!activeRecordingHandle || !activeRecordingPath) {
+      return { ok: false, message: 'no active recording' };
+    }
+    const filePath = activeRecordingPath;
+    try {
+      await activeRecordingHandle.close();
+      activeRecordingHandle = null;
+      activeRecordingPath = null;
+      return { ok: true, filePath };
+    } catch (err) {
+      activeRecordingHandle = null;
+      activeRecordingPath = null;
+      const message = err instanceof Error ? err.message : String(err);
+      return { ok: false, message };
+    }
+  }
+);
+
+ipcMain.handle('recording-open-folder', async (_event, filePath: string) => {
+  shell.showItemInFolder(filePath);
 });

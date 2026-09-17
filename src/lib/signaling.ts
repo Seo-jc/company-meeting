@@ -1,3 +1,13 @@
+// Screen-annotation payload shapes. MUST match the server's validation exactly
+// (signaling/src/worker.ts) — messages that don't match are silently dropped.
+export type AnnotationBody =
+  | { kind: 'point'; x: number; y: number }
+  | { kind: 'stroke'; id: string; phase: 'update' | 'end'; pts: number[] }
+  | { kind: 'shape'; id: string; tool: 'arrow' | 'rect'; x1: number; y1: number; x2: number; y2: number }
+  | { kind: 'text'; id: string; x: number; y: number; text: string }
+  | { kind: 'clear'; scope: 'mine' | 'all' }
+  | { kind: 'permission'; allowed: boolean };
+
 export type SignalingMessage =
   | { type: 'hello'; peerId: string; displayName: string }
   | { type: 'bye' }
@@ -12,7 +22,12 @@ export type SignalingMessage =
   | { type: 'ice'; from: string; to: string; candidate: RTCIceCandidateInit }
   | { type: 'screen-stop'; from: string; to: string }
   | { type: 'mute-state'; from: string; to: string; muted: boolean }
-  | { type: 'chat'; from: string; fromName: string; text: string; ts: number };
+  | { type: 'chat'; from: string; fromName: string; text: string; ts: number }
+  | { type: 'annotation'; from: string; screenOwnerId: string; body: AnnotationBody }
+  // Broadcasts "I started/stopped recording" so every participant is shown a
+  // notice. `from` must equal the sender's own peerId and `active` a boolean,
+  // or the server silently drops the message (see signaling/src/worker.ts).
+  | { type: 'recording'; from: string; active: boolean };
 
 const SIGNALING_URL =
   (import.meta as any).env?.VITE_SIGNALING_URL ??
