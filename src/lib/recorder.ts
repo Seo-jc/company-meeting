@@ -260,17 +260,49 @@ function waitForVideoDimensions(video: HTMLVideoElement): Promise<void> {
   });
 }
 
-export type CompositorOptions = {
+/** A shared screen the compositor can be pointed at. */
+export type CompositorSource = {
   /** The shared-screen video track to render (self or a peer's — same track object). */
-  sourceTrack: MediaStreamTrack;
-  hub: AnnotationHub;
+  track: MediaStreamTrack;
   /** Owner key into the AnnotationHub for this screen (myId for self, peerId for a peer). */
   ownerId: string;
+};
+
+export type CompositorOptions = {
+  /**
+   * Screen to render first, or null to start in the "no screen shared"
+   * placeholder state (recording started before anyone shared a screen).
+   * Either way the canvas size is fixed right here in start() and never
+   * changes again — see setSource().
+   */
+  initialSource: CompositorSource | null;
+  hub: AnnotationHub;
   /** Frames per second for the composite canvas. 15-24 recommended. */
   fps?: number;
   /** Downscale if the source is wider than this (aspect ratio preserved). */
   maxWidth?: number;
 };
+
+/** Plain "contain" fit of a vw×vh source inside a fixed W×H box, centered, aspect preserved.
+ *  Same math as getContentRect() in lib/annotations.ts (kept separate here since that one reads
+ *  live DOM elements — tileEl/video — instead of plain numbers). */
+function fitContentRect(vw: number, vh: number, W: number, H: number): ContentRect {
+  const boxRatio = W / H;
+  const vidRatio = vw / vh;
+  let dispW: number, dispH: number, offX: number, offY: number;
+  if (vidRatio > boxRatio) {
+    dispW = W;
+    dispH = W / vidRatio;
+    offX = 0;
+    offY = (H - dispH) / 2;
+  } else {
+    dispH = H;
+    dispW = H * vidRatio;
+    offY = 0;
+    offX = (W - dispW) / 2;
+  }
+  return { W, H, offX, offY, dispW, dispH };
+}
 
 /**
  * Draws the shared screen + its live annotations onto an offscreen canvas at
@@ -279,16 +311,28 @@ export type CompositorOptions = {
  * zoom/pan controls are a per-viewer convenience and must never affect what
  * gets recorded.
  *
- * Only ever instantiated while a recording with video is active; the render
- * loop is torn down in stop() so it never runs otherwise.
+ * The canvas dimensions are fixed once in start() and never change again
+ * (resizing mid-stream would break the captureStream() track). setSource()
+ * lets the caller redirect what gets drawn — a different shared screen, or
+ * nothing (the "no screen shared" placeholder) — WITHOUT touching the canvas
+ * size or recreating the output track, so a recording stays one continuous
+ * file across any number of source switches. A source narrower/wider than
+ * the canvas is letterboxed/pillarboxed (contain-fit, centered, black bars)
+ * rather than stretched or cropped.
+ *
+ * Only ever instantiated while a recording is active; the render loop is
+ * torn down in stop() so it never runs otherwise.
  */
 export class AnnotationCompositor {
   private video: HTMLVideoElement;
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
-  private sourceStream: MediaStream;
+  private sourceStream: MediaStream | null = null;
   private hub: AnnotationHub;
-  private ownerId: string;
+  /** Track currently feeding `video`, or null while showing the idle placeholder. */
+  private currentTrack: MediaStreamTrack | null = null;
+  /** AnnotationHub owner for `currentTrack`; null exactly when currentTrack is null. */
+  private ownerId: string | null = null;
   private fps: number;
   private maxWidth: number;
   private timer: ReturnType<typeof setInterval> | null = null;
@@ -296,7 +340,6 @@ export class AnnotationCompositor {
 
   constructor(opts: CompositorOptions) {
     this.hub = opts.hub;
-    this.ownerId = opts.ownerId;
     this.fps = opts.fps ?? 20;
     // Capped at 1080p width: a shared 1440p monitor recorded at full size only
     // makes the file several times larger, and nobody plays a meeting recording
@@ -306,24 +349,74 @@ export class AnnotationCompositor {
     this.video = document.createElement('video');
     this.video.muted = true;
     this.video.playsInline = true;
-    // Same track, second container — does not disturb the tile that's already
-    // rendering it on screen.
-    this.sourceStream = new MediaStream([opts.sourceTrack]);
-    this.video.srcObject = this.sourceStream;
 
     this.canvas = document.createElement('canvas');
     const ctx = this.canvas.getContext('2d', { alpha: false });
     if (!ctx) throw new Error('2D canvas context unavailable');
     this.ctx = ctx;
+
+    if (opts.initialSource) {
+      this.applySource(opts.initialSource);
+    }
+  }
+
+  private applySource(source: CompositorSource): void {
+    this.currentTrack = source.track;
+    this.ownerId = source.ownerId;
+    // Same track, second container — does not disturb the tile that's already
+    // rendering it on screen.
+    this.sourceStream = new MediaStream([source.track]);
+    this.video.srcObject = this.sourceStream;
+    void this.video.play().catch((err) => {
+      console.warn('[recorder] compositor source video play() rejected', err);
+    });
+  }
+
+  /**
+   * Redirects what the compositor draws — the user focused a different
+   * shared screen, the previously-recorded screen stopped sharing and
+   * another took over, or (source === null) nothing is shared any more.
+   * The canvas size and the output track are never touched, so the
+   * recording stays one continuous file. Safe to call repeatedly/rapidly:
+   * re-passing the same track, or null while already idle, is a no-op, so
+   * fast back-to-back focus changes never fight each other or restart the
+   * source video for no reason.
+   */
+  setSource(source: CompositorSource | null): void {
+    if (!this.running) return;
+    if (source) {
+      if (this.currentTrack === source.track) {
+        this.ownerId = source.ownerId; // keep annotation owner in sync, just in case
+        return;
+      }
+      this.applySource(source);
+    } else {
+      if (!this.currentTrack) return; // already idle
+      this.currentTrack = null;
+      this.ownerId = null;
+      try {
+        this.video.pause();
+      } catch {
+        // ignore
+      }
+      this.video.srcObject = null;
+      this.sourceStream = null;
+    }
   }
 
   /** Starts the render loop and returns the composited video track. */
   async start(): Promise<MediaStreamTrack> {
-    await this.video.play().catch((err) => {
-      console.warn('[recorder] compositor source video play() rejected', err);
-    });
-    await waitForVideoDimensions(this.video);
+    if (this.currentTrack) {
+      await this.video.play().catch((err) => {
+        console.warn('[recorder] compositor source video play() rejected', err);
+      });
+      await waitForVideoDimensions(this.video);
+    }
 
+    // When nothing is shared yet, fall back to a plain 1280x720 canvas. This
+    // size — whichever branch set it — is FIXED for the rest of the
+    // recording; later sources are letterboxed/pillarboxed into it via
+    // setSource(), never resized (see fitContentRect()).
     const vw = this.video.videoWidth || 1280;
     const vh = this.video.videoHeight || 720;
     const scale = vw > this.maxWidth ? this.maxWidth / vw : 1;
@@ -351,17 +444,39 @@ export class AnnotationCompositor {
     const { ctx, canvas, video } = this;
     const W = canvas.width;
     const H = canvas.height;
+
+    const track = this.currentTrack;
+    const ownerId = this.ownerId;
+    if (!track || !ownerId) {
+      this.drawIdleFrame(W, H);
+      return;
+    }
+
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    if (vw <= 0 || vh <= 0) {
+      // Source just switched (new srcObject hasn't produced a frame yet) —
+      // keep whatever is already on the canvas (previous screen's last
+      // frame, or the idle placeholder) instead of drawing a blank/broken
+      // frame. The next tick (<= 1000/fps ms later) retries; once ready,
+      // drawing resumes with no gap in the recorded file.
+      return;
+    }
+
+    const rect = fitContentRect(vw, vh, W, H);
     try {
-      ctx.drawImage(video, 0, 0, W, H);
+      // Fill black first: a differently-shaped source than the previous
+      // frame's may leave a smaller/larger letterbox, and without this the
+      // old frame's pixels would show through the new bars.
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, W, H);
+      ctx.drawImage(video, rect.offX, rect.offY, rect.dispW, rect.dispH);
     } catch (err) {
       console.warn('[recorder] compositor drawImage failed', err);
       return;
     }
-    // Full-bleed rect — recording has no letterbox and never applies the
-    // viewer's zoom/pan, so offX/offY are always 0 here (see getContentRect()
-    // in lib/annotations.ts for the live, letterbox-aware counterpart).
-    const rect: ContentRect = { W, H, offX: 0, offY: 0, dispW: W, dispH: H };
-    const owner = this.hub.getOwner(this.ownerId);
+
+    const owner = this.hub.getOwner(ownerId);
     const now = Date.now();
     for (const stroke of owner.strokes.values()) {
       drawStroke(ctx, stroke.points, getPeerColor(stroke.peerId), rect);
@@ -379,6 +494,19 @@ export class AnnotationCompositor {
     }
   }
 
+  /** "No screen shared" placeholder — dark background, centered bilingual label. */
+  private drawIdleFrame(W: number, H: number): void {
+    const { ctx } = this;
+    ctx.fillStyle = '#15171c';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.78)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const fontSize = Math.max(14, Math.round(Math.min(W, H) * 0.05));
+    ctx.font = `${fontSize}px sans-serif`;
+    ctx.fillText('화면 공유 없음 / No screen shared', W / 2, H / 2);
+  }
+
   stop(): void {
     this.running = false;
     if (this.timer) {
@@ -391,6 +519,9 @@ export class AnnotationCompositor {
       // ignore
     }
     this.video.srcObject = null;
+    this.sourceStream = null;
+    this.currentTrack = null;
+    this.ownerId = null;
   }
 }
 

@@ -97,6 +97,9 @@ const STR = {
     record: '녹화',
     recordStop: '녹화 중지',
     recordBadge: '녹화 중',
+    recordSourceAudioOnly: '음성만',
+    recordSourceMyScreen: '내 화면',
+    recordSourcePeerScreen: (name: string) => `${name}님 화면`,
     recordBannerOne: (name: string) => `🔴 ${name}님이 녹화 중입니다`,
     recordConfirmTitle: '회의를 녹화합니다',
     recordConfirmBody: '참가자 전원에게 녹화 중임이 표시됩니다. 시작할까요?',
@@ -178,6 +181,9 @@ const STR = {
     record: 'Record',
     recordStop: 'Stop recording',
     recordBadge: 'Recording',
+    recordSourceAudioOnly: 'audio only',
+    recordSourceMyScreen: 'my screen',
+    recordSourcePeerScreen: (name: string) => `${name}'s screen`,
     recordBannerOne: (name: string) => `🔴 ${name} is recording`,
     recordConfirmTitle: 'Record this meeting',
     recordConfirmBody: 'All participants will see that the meeting is being recorded. Start now?',
@@ -361,6 +367,12 @@ export default function MeetingRoom({
   const recorderRef = useRef<MeetingRecorder | null>(null);
   const audioMixerRef = useRef<AudioMixer | null>(null);
   const compositorRef = useRef<AnnotationCompositor | null>(null);
+  // Mirrors recordVideoSourceId synchronously (refs update immediately, state
+  // doesn't) so the follow/succeed effect below always reads the latest
+  // value without needing recordVideoSourceId itself as a dependency — that
+  // would make the effect re-run from the very state it sets, which is
+  // harder to reason about for no benefit.
+  const recordVideoSourceIdRef = useRef<string | null>(null);
   const leavingRef = useRef(false);
 
   const unreadChat = chatOpen ? 0 : messages.length - lastReadChatIndex;
@@ -564,6 +576,7 @@ export default function MeetingRoom({
     if (!rec) return;
     recorderRef.current = null;
     setRecording(false);
+    recordVideoSourceIdRef.current = null;
     setRecordVideoSourceId(null);
     setRecordingStartTs(null);
     meshRef.current?.sendRecording(false);
@@ -586,6 +599,7 @@ export default function MeetingRoom({
       if (!recorderRef.current) return; // a manual stop already claimed cleanup
       recorderRef.current = null;
       setRecording(false);
+      recordVideoSourceIdRef.current = null;
       setRecordVideoSourceId(null);
       setRecordingStartTs(null);
       meshRef.current?.sendRecording(false);
@@ -600,20 +614,61 @@ export default function MeetingRoom({
     [t]
   );
 
-  // Requirement: if the specific screen being recorded stops sharing (or the
-  // peer sharing it leaves), end the recording safely and keep what's captured
-  // so far — never let a dangling recording run silently with no video.
+  // Requirement: the recording never stops just because a screen stopped
+  // sharing — only the "녹화 중지" button (handleStopRecording) ends it. This
+  // effect is the single place that decides "what should the recording be
+  // showing right now" and re-evaluates it whenever focus or the set of
+  // shared screens changes:
+  //   1) whatever screen the user has explicitly focused, if it's still
+  //      shared — "follow" (recording switches even if the previously
+  //      recorded screen is still live elsewhere);
+  //   2) otherwise, keep recording the current screen if it's still shared
+  //      (don't bounce the target just because focus moved to a non-screen
+  //      tile or back to the grid);
+  //   3) otherwise hand off to another still-shared screen ("자동 승계"), or
+  //      to the idle "no screen shared" placeholder if none remain — and
+  //      symmetrically, coming FROM idle, adopt the first screen that starts
+  //      sharing ("자동 복귀").
+  // The compositor keeps the same canvas/output track throughout (see
+  // AnnotationCompositor.setSource in lib/recorder.ts), so the recorded file
+  // never restarts.
   useEffect(() => {
-    if (!recording || !recordVideoSourceId) return;
-    if (recordVideoSourceId === SCREEN_SELF_ID) {
-      if (!screenStream) void handleStopRecording();
-      return;
+    if (!recording) return;
+    const compositor = compositorRef.current;
+    if (!compositor) return;
+
+    const candidates: Array<{ sourceId: string; track: MediaStreamTrack }> = [];
+    if (screenStream) {
+      const track = screenStream.getVideoTracks()[0];
+      if (track) candidates.push({ sourceId: SCREEN_SELF_ID, track });
     }
-    const peer = peers.find((p) => p.peerId === recordVideoSourceId);
-    if (!peer || peer.stream.getVideoTracks().length === 0) {
-      void handleStopRecording();
+    for (const peer of peers) {
+      const track = peer.stream.getVideoTracks()[0];
+      if (track) candidates.push({ sourceId: peer.peerId, track });
     }
-  }, [recording, recordVideoSourceId, screenStream, peers, handleStopRecording]);
+
+    let desired: { sourceId: string; track: MediaStreamTrack } | null = null;
+    if (expandedId) {
+      desired = candidates.find((c) => c.sourceId === expandedId) ?? null;
+    }
+    if (!desired) {
+      const currentId = recordVideoSourceIdRef.current;
+      const current = currentId ? candidates.find((c) => c.sourceId === currentId) : undefined;
+      desired = current ?? candidates[0] ?? null;
+    }
+
+    const desiredId = desired?.sourceId ?? null;
+    if (desiredId === recordVideoSourceIdRef.current) return; // already correct
+
+    if (desired) {
+      const hubOwnerId = desired.sourceId === SCREEN_SELF_ID ? myId : desired.sourceId;
+      compositor.setSource({ track: desired.track, ownerId: hubOwnerId });
+    } else {
+      compositor.setSource(null);
+    }
+    recordVideoSourceIdRef.current = desiredId;
+    setRecordVideoSourceId(desiredId);
+  }, [recording, expandedId, screenStream, peers, myId]);
 
   // Requirement: participants joining/leaving mid-recording must be reflected
   // in the audio mix live. No-op while not recording (mixer ref is null).
@@ -1114,12 +1169,17 @@ export default function MeetingRoom({
     setAnnotateOn(true);
   };
 
-  // ----- Recording: which screen to capture -----
+  // ----- Recording: which screen to start capturing -----
   // Priority 1: whichever screen is currently focused/expanded (explicitly
   // "the screen you're looking at"). Priority 2: if exactly one screen is
   // shared in the room, that's the obvious default even when nothing is
   // focused. Otherwise (no screen shared, or several shared with none
-  // focused) falls back to audio-only.
+  // focused) starts from the "no screen shared" placeholder — deliberately
+  // conservative so recording never guesses which of several screens the
+  // user meant. This only decides the STARTING screen; once recording, the
+  // follow/succeed effect above takes over (it can hand off between several
+  // shared screens without this ambiguity concern, since by then there is
+  // already a screen being recorded to hand off FROM).
   const pickRecordingVideoSelection = (): { sourceId: string; track: MediaStreamTrack } | null => {
     if (expandedId && focusHasVideo) {
       if (expandedId === SCREEN_SELF_ID && screenStream) {
@@ -1182,44 +1242,52 @@ export default function MeetingRoom({
     }
 
     const selection = pickRecordingVideoSelection();
-    const hasVideo = !!selection;
-    const mimeType = pickMimeType(hasVideo);
+    // Always record with a video track/compositor, even when nothing is
+    // shared right now (or several screens are shared with none focused):
+    // the compositor just starts in its "no screen shared" placeholder
+    // state. That way a screen share starting — or the user focusing one —
+    // later in the meeting can be picked up by the follow/succeed effect
+    // switching the SAME canvas/output track, never by restarting
+    // MediaRecorder (which would split the recording into separate files).
+    const mimeType = pickMimeType(true);
     const fileName = buildRecordingFileName(roomCode, mimeType);
 
-    // Composite the shared screen + live annotations onto an offscreen canvas
-    // BEFORE touching disk, so a compositor failure (e.g. captureStream
-    // unsupported) never leaves a stray empty file behind.
-    let compositor: AnnotationCompositor | null = null;
-    let compositedVideoTrack: MediaStreamTrack | null = null;
-    if (selection) {
-      const hubOwnerId = selection.sourceId === SCREEN_SELF_ID ? myId : selection.sourceId;
-      compositor = new AnnotationCompositor({
-        sourceTrack: selection.track,
-        hub,
-        ownerId: hubOwnerId,
-        fps: 20,
-        maxWidth: 2560,
-      });
-      try {
-        compositedVideoTrack = await compositor.start();
-      } catch (err) {
-        console.error('[recording] compositor start failed', err);
-        compositor.stop();
-        setRecordConfirmError('unknown');
-        return;
-      }
+    // Composite the shared screen (or the idle placeholder) + live
+    // annotations onto an offscreen canvas BEFORE touching disk, so a
+    // compositor failure (e.g. captureStream unsupported) never leaves a
+    // stray empty file behind.
+    const initialSource = selection
+      ? {
+          track: selection.track,
+          ownerId: selection.sourceId === SCREEN_SELF_ID ? myId : selection.sourceId,
+        }
+      : null;
+    const compositor = new AnnotationCompositor({
+      initialSource,
+      hub,
+      fps: 20,
+      maxWidth: 2560,
+    });
+    let compositedVideoTrack: MediaStreamTrack;
+    try {
+      compositedVideoTrack = await compositor.start();
+    } catch (err) {
+      console.error('[recording] compositor start failed', err);
+      compositor.stop();
+      setRecordConfirmError('unknown');
+      return;
     }
 
     let writer: RecordingWriter;
     if (isElectron) {
       if (!dir) {
-        compositor?.stop();
+        compositor.stop();
         setRecordConfirmError('unknown');
         return;
       }
       const res = await createElectronWriter(dir, fileName);
       if (!res.ok) {
-        compositor?.stop();
+        compositor.stop();
         setRecordConfirmError(res.error);
         return;
       }
@@ -1244,7 +1312,7 @@ export default function MeetingRoom({
     if (!startRes.ok) {
       console.error('[recording] start failed', startRes.message);
       mixer.close();
-      compositor?.stop();
+      compositor.stop();
       writer.abort();
       setRecordConfirmError('unknown');
       return;
@@ -1253,6 +1321,7 @@ export default function MeetingRoom({
     recorderRef.current = rec;
     audioMixerRef.current = mixer;
     compositorRef.current = compositor;
+    recordVideoSourceIdRef.current = selection?.sourceId ?? null;
     setRecordVideoSourceId(selection?.sourceId ?? null);
     setRecordingStartTs(Date.now());
     setRecording(true);
@@ -1304,10 +1373,19 @@ export default function MeetingRoom({
     .filter((p) => recordingPeerIds.has(p.peerId))
     .map((p) => p.displayName);
 
+  // What the recording badge shows is currently being recorded — follows the
+  // same follow/succeed source as the compositor (see the effect above).
+  const recordingSourceLabel = (() => {
+    if (!recordVideoSourceId) return t.recordSourceAudioOnly;
+    if (recordVideoSourceId === SCREEN_SELF_ID) return t.recordSourceMyScreen;
+    const peer = peers.find((p) => p.peerId === recordVideoSourceId);
+    return peer ? t.recordSourcePeerScreen(peer.displayName) : t.recordSourceAudioOnly;
+  })();
+
   return (
     <div className={`meeting ${chatOpen ? 'chat-open' : ''}`}>
       {recording && recordingStartTs !== null && (
-        <RecordingBadge startTs={recordingStartTs} />
+        <RecordingBadge startTs={recordingStartTs} sourceLabel={recordingSourceLabel} />
       )}
       <header className="meeting-header">
         <div className="meeting-header-brand">
@@ -1569,7 +1647,7 @@ export default function MeetingRoom({
   );
 }
 
-function RecordingBadge({ startTs }: { startTs: number }) {
+function RecordingBadge({ startTs, sourceLabel }: { startTs: number; sourceLabel: string }) {
   const [now, setNow] = useState(Date.now());
   const t = useT(STR);
 
@@ -1585,7 +1663,7 @@ function RecordingBadge({ startTs }: { startTs: number }) {
   return (
     <div className="recording-badge" role="status">
       <span className="recording-dot" aria-hidden="true" />
-      {t.recordBadge} {mm}:{ss}
+      {t.recordBadge} {mm}:{ss} · {sourceLabel}
     </div>
   );
 }
