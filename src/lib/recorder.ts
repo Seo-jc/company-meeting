@@ -27,20 +27,24 @@ import {
 
 // --------------------------------- mime type / file naming ---------------------------------
 
-// Preference order confirmed against Chromium's MediaRecorder.isTypeSupported:
-// mp4 first (friendlier file extension for a non-technical audience), webm as
-// the guaranteed-working fallback. Always probed at runtime — Electron 33
-// (Chromium 130) may not support the mp4 candidates yet, in which case this
-// silently (and correctly) falls through to webm.
+// mp4 first (friendlier extension for a non-technical audience), webm as the
+// fallback. Every candidate here was recorded end-to-end on Electron 33
+// (Chromium 130), not just passed through isTypeSupported — which is NOT a
+// reliable gate: it answers true for AAC (`mp4a.40.2`) and then MediaRecorder
+// dies with "EncodingError: The given encoder configuration is not supported
+// by the encoder" the instant an audio track is attached. That happens at
+// every resolution, with and without hardware acceleration, so AAC is left out
+// entirely rather than ranked lower. Opus inside mp4 records fine.
+// Bare 'video/mp4' is also omitted: it yields zero bytes at 1080p and above.
 const VIDEO_MIME_CANDIDATES = [
-  'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
-  'video/mp4;codecs=avc1,mp4a.40.2',
-  'video/mp4',
+  'video/mp4;codecs=avc1.42E01E,opus',
+  'video/mp4;codecs=avc1,opus',
   'video/webm;codecs=vp9,opus',
   'video/webm;codecs=vp8,opus',
   'video/webm',
 ];
-const AUDIO_MIME_CANDIDATES = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm'];
+// 'audio/mp4' is AAC too, so it would hit the same encoder wall.
+const AUDIO_MIME_CANDIDATES = ['audio/webm;codecs=opus', 'audio/webm'];
 
 export function isRecordingSupported(): boolean {
   return typeof MediaRecorder !== 'undefined';
@@ -294,7 +298,10 @@ export class AnnotationCompositor {
     this.hub = opts.hub;
     this.ownerId = opts.ownerId;
     this.fps = opts.fps ?? 20;
-    this.maxWidth = opts.maxWidth ?? 2560;
+    // Capped at 1080p width: a shared 1440p monitor recorded at full size only
+    // makes the file several times larger, and nobody plays a meeting recording
+    // back at that resolution. Anything narrower is left alone.
+    this.maxWidth = opts.maxWidth ?? 1920;
 
     this.video = document.createElement('video');
     this.video.muted = true;

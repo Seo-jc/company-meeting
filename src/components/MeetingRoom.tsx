@@ -90,6 +90,8 @@ const STR = {
     mutedBadge: '음소거',
     mySharingScreen: '내 화면 (공유 중)',
     annotate: '주석',
+    annotateOpenTip: '주석 도구 열기',
+    annotateCloseTip: '주석 도구 닫기',
     noScreenShared: '공유 중인 화면이 없습니다',
     multiScreenHint: '공유된 화면이 여러 개입니다. 주석을 그릴 화면을 더블클릭해 확대해 주세요.',
     record: '녹화',
@@ -169,6 +171,8 @@ const STR = {
     mutedBadge: 'Muted',
     mySharingScreen: 'My screen (sharing)',
     annotate: 'Annotate',
+    annotateOpenTip: 'Open annotation tools',
+    annotateCloseTip: 'Close annotation tools',
     noScreenShared: 'No screen is being shared',
     multiScreenHint: 'Multiple screens are shared. Double-click the one you want to annotate to expand it.',
     record: 'Record',
@@ -287,6 +291,21 @@ export default function MeetingRoom({
   useEffect(() => () => {
     if (annotateHintTimerRef.current) clearTimeout(annotateHintTimerRef.current);
   }, []);
+  // Whether the annotation toolbar/pointer-input is turned on (독립 토글 —
+  // 화면 확대 여부와 별개). Gates only the toolbar + drawing input in
+  // AnnotationCanvas; the draw loop there always renders incoming
+  // strokes/shapes regardless of this flag, so others' annotations stay
+  // visible even while this is off (see AnnotationCanvas.tsx).
+  const [annotateOn, setAnnotateOn] = useState(false);
+  // Must not linger once there is nothing left to annotate — reset it the
+  // moment the last shared screen (mine or a peer's) disappears, so a stale
+  // "on" state doesn't carry into a future share with no toolbar visible to
+  // turn it back off.
+  useEffect(() => {
+    const anyScreenShared =
+      !!screenStream || peers.some((p) => p.stream.getVideoTracks().length > 0);
+    if (!anyScreenShared) setAnnotateOn(false);
+  }, [screenStream, peers]);
   // Tracks each peer's previous "is currently screen-sharing" state so we can detect
   // transitions at the meeting level (not inside PeerTile — that component remounts
   // whenever a tile is focused/unfocused, which would otherwise wipe annotations on
@@ -985,6 +1004,7 @@ export default function MeetingRoom({
           myId={myId}
           hub={hub}
           sendAnnotation={sendAnnotation}
+          annotateOn={annotateOn}
         />
       ),
     });
@@ -1002,6 +1022,7 @@ export default function MeetingRoom({
           myId={myId}
           hub={hub}
           sendAnnotation={sendAnnotation}
+          annotateOn={annotateOn}
         />
       ),
     });
@@ -1066,21 +1087,31 @@ export default function MeetingRoom({
     setPan({ x: 0, y: 0 });
   };
 
-  // "주석" control-bar button: if a shared screen is already focused, the toolbar
-  // (rendered by AnnotationCanvas inside that tile) is already showing — nothing
-  // to do. Otherwise, auto-focus the one shared screen, or hint the user to pick
-  // one themselves (via the existing double-click-to-expand gesture) when there's
-  // more than one.
+  // "주석" control-bar button: a real on/off toggle for the annotation
+  // toolbar, independent of screen-expand state.
+  // - Off -> On: if no screen is shared, ignore. If none is focused yet,
+  //   auto-focus the one shared screen, or hint the user to pick one
+  //   themselves (via double-click-to-expand) when there's more than one —
+  //   same as before. Either way, turn annotation mode on.
+  // - On -> Off: just turn annotation mode off. Never force-collapse an
+  //   expanded screen — the user is looking at it; shrinking it back would
+  //   be a jarring surprise unrelated to the annotate toggle.
   const handleAnnotateClick = () => {
     if (activeScreenIds.length === 0) return;
-    if (focusHasVideo) return;
-    if (activeScreenIds.length === 1) {
-      setExpandedId(activeScreenIds[0]);
-    } else {
-      setAnnotateHint(true);
-      if (annotateHintTimerRef.current) clearTimeout(annotateHintTimerRef.current);
-      annotateHintTimerRef.current = setTimeout(() => setAnnotateHint(false), 4000);
+    if (annotateOn) {
+      setAnnotateOn(false);
+      return;
     }
+    if (!focusHasVideo) {
+      if (activeScreenIds.length === 1) {
+        setExpandedId(activeScreenIds[0]);
+      } else {
+        setAnnotateHint(true);
+        if (annotateHintTimerRef.current) clearTimeout(annotateHintTimerRef.current);
+        annotateHintTimerRef.current = setTimeout(() => setAnnotateHint(false), 4000);
+      }
+    }
+    setAnnotateOn(true);
   };
 
   // ----- Recording: which screen to capture -----
@@ -1451,12 +1482,18 @@ export default function MeetingRoom({
         </div>
         <div className="control-item">
           <button
-            className={`btn-circle ${focusHasVideo ? 'btn-active' : ''} ${
+            className={`btn-circle ${annotateOn ? 'btn-active' : ''} ${
               activeScreenIds.length === 0 ? 'btn-disabled' : ''
             }`}
             onClick={handleAnnotateClick}
             disabled={activeScreenIds.length === 0}
-            title={activeScreenIds.length === 0 ? t.noScreenShared : t.annotate}
+            title={
+              activeScreenIds.length === 0
+                ? t.noScreenShared
+                : annotateOn
+                ? t.annotateCloseTip
+                : t.annotateOpenTip
+            }
           >
             🖊️
           </button>
@@ -1779,6 +1816,7 @@ function SelfScreenTile({
   myId,
   hub,
   sendAnnotation,
+  annotateOn,
 }: {
   stream: MediaStream;
   focused?: boolean;
@@ -1786,6 +1824,7 @@ function SelfScreenTile({
   myId: string;
   hub: AnnotationHub;
   sendAnnotation: (screenOwnerId: string, body: AnnotationBody) => void;
+  annotateOn: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const tileRef = useRef<HTMLDivElement>(null);
@@ -1810,6 +1849,7 @@ function SelfScreenTile({
         tileRef={tileRef as RefObject<HTMLElement>}
         hub={hub}
         focused={!!focused}
+        annotateOn={annotateOn}
         sendAnnotation={sendAnnotation}
       />
       <div className="tile-name">{t.mySharingScreen}</div>
@@ -1825,6 +1865,7 @@ function PeerTile({
   myId,
   hub,
   sendAnnotation,
+  annotateOn,
 }: {
   peer: RemotePeer;
   speaking: boolean;
@@ -1833,6 +1874,7 @@ function PeerTile({
   myId: string;
   hub: AnnotationHub;
   sendAnnotation: (screenOwnerId: string, body: AnnotationBody) => void;
+  annotateOn: boolean;
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -1879,6 +1921,7 @@ function PeerTile({
             tileRef={tileRef as RefObject<HTMLElement>}
             hub={hub}
             focused={!!focused}
+            annotateOn={annotateOn}
             sendAnnotation={sendAnnotation}
           />
         </>

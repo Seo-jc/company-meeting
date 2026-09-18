@@ -70,6 +70,15 @@ type Props = {
   hub: AnnotationHub;
   /** Whether THIS tile is currently the expanded/focused one — gates the toolbar. */
   focused: boolean;
+  /**
+   * Whether annotation mode is turned on (via the control-bar 주석 toggle).
+   * Gates the toolbar + drawing/pointer input alongside `focused`. Does NOT
+   * gate the draw loop below — incoming strokes/shapes/text/laser marks from
+   * anyone always keep rendering regardless of this flag, so turning this
+   * off only hides your own tools; it never hides what others drew (like a
+   * chat window: seeing is always on, composing is opt-in).
+   */
+  annotateOn: boolean;
   sendAnnotation: (screenOwnerId: string, body: AnnotationBody) => void;
 };
 
@@ -82,6 +91,7 @@ export default function AnnotationCanvas({
   tileRef,
   hub,
   focused,
+  annotateOn,
   sendAnnotation,
 }: Props) {
   const t = useT(STR);
@@ -108,15 +118,17 @@ export default function AnnotationCanvas({
     });
   }, [hub, screenOwnerId]);
 
-  // Leaving focus, or losing draw permission, always drops back to the
-  // non-interactive "select" tool so pointer-events go back to none.
+  // Leaving focus, or turning annotation mode off (the control-bar 주석
+  // toggle), always drops back to the non-interactive "select" tool so
+  // pointer-events go back to none — this is what lets double-click-to-expand,
+  // wheel-zoom and drag-pan work again underneath once the toolbar is closed.
   useEffect(() => {
-    if (!focused) {
+    if (!focused || !annotateOn) {
       setTool('select');
       setEraserMenuOpen(false);
       setTextDraft(null);
     }
-  }, [focused]);
+  }, [focused, annotateOn]);
   useEffect(() => {
     if (!canDraw) setTool('select');
   }, [canDraw]);
@@ -408,7 +420,7 @@ export default function AnnotationCanvas({
           onBlur={() => setTextDraft(null)}
         />
       )}
-      {focused && (
+      {focused && annotateOn && (
         <div className="annotation-toolbar" style={toolbarVars}>
           {!canDraw ? (
             <span className="annotation-lock-msg">🔒 {t.lockedMsg}</span>
