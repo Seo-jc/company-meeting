@@ -106,6 +106,11 @@ export class SignalingClient {
       };
 
       ws.onclose = () => {
+        // A socket we have already moved on from is no concern of ours. The
+        // server closes a peer's earlier socket when the same peer re-hellos on
+        // a new one; reconnecting on that close would open yet another socket,
+        // retire the current one, and chain into a reconnect storm.
+        if (ws !== this.ws) return;
         this.stopKeepalive();
         if (!this.intentionalClose) {
           console.warn('[signaling] websocket closed unexpectedly → reconnecting');
@@ -114,6 +119,9 @@ export class SignalingClient {
       };
 
       ws.onmessage = (event) => {
+        // A late message on a superseded socket would describe a session we
+        // have already replaced.
+        if (ws !== this.ws) return;
         let msg: SignalingMessage;
         try {
           msg = JSON.parse(event.data);
