@@ -2,6 +2,7 @@ import { Fragment, ReactNode, RefObject, useCallback, useEffect, useRef, useStat
 import { SignalingClient, type AnnotationBody } from '../lib/signaling';
 import { ChatMessage, MeshConnection, RemotePeer } from '../lib/webrtc';
 import { AnnotationHub } from '../lib/annotations';
+import { describeError, sendBugReport } from '../lib/bugReporter';
 import {
   getMicrophone,
   getScreenShareBrowser,
@@ -805,11 +806,32 @@ export default function MeetingRoom({
     setShareError(null);
   };
 
-  const reportShareError = (e: unknown) => {
+  /**
+   * @param pickedSource true when the user had already chosen a source (Electron
+   *   picker) — an error then is a real failure even if it reads like a denial.
+   *   In the browser path, getDisplayMedia() also rejects when the user merely
+   *   cancels, which must not be reported as a failure.
+   */
+  const reportShareError = (e: unknown, pickedSource = false) => {
     const msg = e instanceof Error ? e.message : String(e);
-    if (!/permission denied|aborted|not allowed|cancel|abort/i.test(msg)) {
+    const looksLikeCancel = /permission denied|aborted|not allowed|cancel|abort/i.test(msg);
+    if (!looksLikeCancel) {
       setShareError(t.shareFailPrefix + msg);
       setTimeout(() => setShareError(null), 6000);
+    }
+    if (pickedSource || !looksLikeCancel) {
+      const { name, message } = describeError(e);
+      void sendBugReport({
+        type: 'screen-share-failed',
+        severity: 'warning',
+        message: 'Screen share failed',
+        details: {
+          errorName: name,
+          error: message,
+          mode: isElectron ? 'electron' : 'browser',
+        },
+        participantCount: peers.length + 1,
+      });
     }
   };
 
@@ -842,7 +864,7 @@ export default function MeetingRoom({
       const stream = await getScreenShareElectron(sourceId);
       await startSharing(stream);
     } catch (e) {
-      reportShareError(e);
+      reportShareError(e, true);
     }
   };
 

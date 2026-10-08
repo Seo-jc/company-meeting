@@ -1,5 +1,5 @@
 import { SignalingClient, type AnnotationBody } from './signaling';
-import { sendBugReport } from './bugReporter';
+import { describeError, sendBugReport } from './bugReporter';
 import { pickT } from '../i18n';
 
 const STR = {
@@ -84,6 +84,16 @@ type PeerState = {
   disconnectTimer: ReturnType<typeof setTimeout> | null;
   restartAttempts: number;
   closed: boolean;
+  /** Delayed first restartIce() of the polite side (gives the impolite side a head start). */
+  restartKickTimer: ReturnType<typeof setTimeout> | null;
+  /** When the last restart attempt began (0 = none); used to coalesce duplicate triggers. */
+  lastAttemptAt: number;
+  /** When the current outage began (null = healthy); bounds the total retry time. */
+  outageStartedAt: number | null;
+  /** When the pc entered have-local-offer (null = not waiting for an answer). */
+  localOfferSince: number | null;
+  /** The 'webrtc-failed' report was already sent for this outage. */
+  failureReported: boolean;
 };
 
 type IncomingFile = {
@@ -99,6 +109,32 @@ type IncomingFile = {
 const FILE_CHUNK_SIZE = 16 * 1024;          // 16 KB per chunk
 const FILE_BACKPRESSURE_LIMIT = 1024 * 1024; // pause sending when buffer > 1 MB
 const FILE_MAX_SIZE = 200 * 1024 * 1024;    // 200 MB cap
+
+// ---- Auto-recovery (ICE restart) tuning ----
+// The polite side waits this long before its FIRST restartIce() so the impolite
+// side usually restarts first and the two offers don't collide (Perfect
+// Negotiation resolves a collision anyway; this just avoids needless churn).
+const RESTART_POLITE_FIRST_DELAY_MS = 2000;
+// Interval between retries: 6s, 9s, 13.5s, 20s, then capped at 30s.
+const RESTART_RETRY_BASE_MS = 6000;
+const RESTART_RETRY_GROWTH = 1.5;
+const RESTART_RETRY_MAX_MS = 30000;
+// Retries continue for as long as the signaling server still lists the peer
+// (peer-left / sync remove it). This is only a runaway safety net.
+const RESTART_GIVE_UP_MS = 5 * 60 * 1000;
+// 'failed' arrives on both connectionState and iceConnectionState back to back;
+// restart triggers closer together than this count as one attempt.
+const RESTART_COALESCE_MS = 1500;
+// An offer unanswered for this long is presumed lost (e.g. sent while the
+// signaling socket was down — SignalingClient.send() drops silently then).
+const STALE_LOCAL_OFFER_MS = 5000;
+
+function restartRetryDelay(attempt: number): number {
+  return Math.min(
+    RESTART_RETRY_BASE_MS * RESTART_RETRY_GROWTH ** (attempt - 1),
+    RESTART_RETRY_MAX_MS
+  );
+}
 
 export class MeshConnection {
   private states = new Map<string, PeerState>();
@@ -129,11 +165,17 @@ export class MeshConnection {
     // drop on a corporate network), rebuild media paths to every peer via ICE
     // restart so audio/screen recover without the user having to rejoin.
     this.signaling.onReconnect(() => {
-      console.log('[webrtc] signaling reconnected → restarting ICE on all peers');
-      for (const peerId of this.states.keys()) {
-        const st = this.states.get(peerId);
-        if (st) st.restartAttempts = 0;
-        this.attemptRestart(peerId);
+      // When our old socket closed, the server told everyone else `peer-left`,
+      // so they have already torn down their side of each connection. Restarting
+      // ICE on our stale PCs would offer old DTLS state to peers that now hold
+      // fresh ones, and the handshake cannot line up — that is the reconnect
+      // failure seen in the field. Drop ours instead: the `peers` reply to our
+      // re-hello then rebuilds every connection through the normal join path,
+      // the same one each participant takes on entering (screen share included,
+      // via the late-joiner branch in createPc).
+      console.log('[webrtc] signaling reconnected → rebuilding all peer connections');
+      for (const peerId of Array.from(this.states.keys())) {
+        this.closePeer(peerId);
       }
     });
 
@@ -393,6 +435,11 @@ export class MeshConnection {
       disconnectTimer: null,
       restartAttempts: 0,
       closed: false,
+      restartKickTimer: null,
+      lastAttemptAt: 0,
+      outageStartedAt: null,
+      localOfferSince: null,
+      failureReported: false,
     };
     this.states.set(peerId, state);
     console.log('[webrtc] created pc for', peerId, 'polite:', polite);
@@ -466,7 +513,14 @@ export class MeshConnection {
             clearTimeout(st.disconnectTimer);
             st.disconnectTimer = null;
           }
+          if (st.restartKickTimer) {
+            clearTimeout(st.restartKickTimer);
+            st.restartKickTimer = null;
+          }
           st.restartAttempts = 0;
+          st.outageStartedAt = null;
+          st.lastAttemptAt = 0;
+          st.failureReported = false;
           break;
 
         case 'disconnected':
@@ -485,7 +539,12 @@ export class MeshConnection {
 
         case 'failed':
           // Connection broke — try to recover via ICE restart instead of giving up.
-          void this.reportConnectionFailure(peerId, pc);
+          // Retries can now go on for minutes, so report once per outage, not once
+          // per 'failed' transition (the server store is capped).
+          if (!st.failureReported) {
+            st.failureReported = true;
+            void this.reportConnectionFailure(peerId, pc);
+          }
           this.attemptRestart(peerId);
           break;
 
@@ -507,6 +566,9 @@ export class MeshConnection {
 
     pc.onsignalingstatechange = () => {
       console.log('[webrtc] signaling state', peerId, pc.signalingState);
+      // Remember when we started waiting for an answer, so a lost offer can be
+      // told apart from one that is merely in flight (see kickIceRestart).
+      state.localOfferSince = pc.signalingState === 'have-local-offer' ? Date.now() : null;
     };
 
     pc.onnegotiationneeded = async () => {
@@ -561,6 +623,8 @@ export class MeshConnection {
       this.dataChannels.delete(peerId);
       const activeFileId = this.peerActiveFile.get(peerId);
       if (activeFileId) {
+        const incoming = this.incomingFiles.get(activeFileId);
+        this.reportFileTransferFailure('receive-closed', undefined, incoming?.size, peerId);
         this.cb.onFileFailed({ id: activeFileId, reason: pickT(STR).connectionClosed });
         this.incomingFiles.delete(activeFileId);
         this.peerActiveFile.delete(peerId);
@@ -617,6 +681,7 @@ export class MeshConnection {
             this.cb.onFileComplete({ id: msg.id, blobUrl: url });
           } catch (err) {
             console.error('[dc] blob assembly failed', err);
+            this.reportFileTransferFailure('receive-assemble', err, state.size, peerId);
             this.cb.onFileFailed({ id: msg.id, reason: pickT(STR).fileAssemblyFailed });
           }
           this.incomingFiles.delete(msg.id);
@@ -655,6 +720,23 @@ export class MeshConnection {
       throw new Error(pickT(STR).noConnectedPeers);
     }
 
+    // The two checks above are user-level rejections (not failures worth a
+    // report). Anything thrown while actually transferring is reported.
+    try {
+      await this.streamFile(file, id, channels, onProgress);
+    } catch (err) {
+      this.reportFileTransferFailure('send', err, file.size);
+      throw err;
+    }
+  }
+
+  private async streamFile(
+    file: File,
+    id: string,
+    channels: RTCDataChannel[],
+    onProgress?: (sent: number, total: number) => void
+  ): Promise<void> {
+    let chunkFailureReported = false;
     const meta = JSON.stringify({
       type: 'file-meta',
       id,
@@ -681,6 +763,11 @@ export class MeshConnection {
           dc.send(buf);
         } catch (err) {
           console.warn('[dc] send chunk failed', err);
+          // Once per transfer: every remaining chunk would likely fail the same way.
+          if (!chunkFailureReported) {
+            chunkFailureReported = true;
+            this.reportFileTransferFailure('send-chunk', err, file.size);
+          }
         }
       }
 
@@ -741,11 +828,49 @@ export class MeshConnection {
   }
 
   /**
+   * Report a failed file transfer. Deliberately carries no file name, only the
+   * stage, a short path-free error text and the size. Throttled to one report
+   * per minute by the type-level throttle in bugReporter.
+   */
+  private reportFileTransferFailure(
+    stage: 'send' | 'send-chunk' | 'receive-closed' | 'receive-assemble',
+    err: unknown,
+    sizeBytes?: number,
+    peerId?: string
+  ): void {
+    const e = err === undefined ? undefined : describeError(err);
+    void sendBugReport({
+      type: 'file-transfer-failed',
+      severity: 'warning',
+      message: 'File transfer failed',
+      details: {
+        stage,
+        errorName: e?.name,
+        error: e?.message,
+        sizeMB: sizeBytes === undefined ? undefined : Math.round(sizeBytes / 1024 / 102.4) / 10,
+        peerIdHash: peerId?.slice(0, 8),
+        totalPeers: this.states.size,
+      },
+    });
+  }
+
+  /**
    * Try to recover a broken/dropped connection without making the user leave
-   * and rejoin. Uses ICE restart (re-gathers network paths). Only the impolite
-   * peer initiates the restart offer to avoid both sides colliding (glare);
-   * the polite peer just waits for the new offer. Gives up after several
-   * attempts and lets the server-driven sync re-establish the peer.
+   * and rejoin. Uses ICE restart (re-gathers network paths).
+   *
+   * BOTH sides restart. Earlier only the impolite side did, so the peer with the
+   * smaller id (polite towards everyone) could never recover on its own. Doing it
+   * from both ends is safe because the offer handler implements Perfect
+   * Negotiation: colliding offers are resolved there (the polite side yields via
+   * implicit rollback, the impolite side ignores the polite side's offer). To
+   * reduce collisions the polite side delays only its FIRST restart a little.
+   *
+   * Retries keep going — with growing intervals up to a cap — for as long as the
+   * peer still has a PeerState, i.e. until the server says the peer is gone
+   * (peer-left / sync → closePeer). RESTART_GIVE_UP_MS is only a runaway guard.
+   *
+   * A signaling reconnect does not come through here — onReconnect rebuilds
+   * every connection instead, because the far side has already dropped its own.
    */
   private attemptRestart(peerId: string) {
     const state = this.states.get(peerId);
@@ -754,35 +879,57 @@ export class MeshConnection {
     const cs = state.pc.connectionState;
     if (cs === 'connected') {
       state.restartAttempts = 0;
+      state.outageStartedAt = null;
       return;
     }
 
-    if (state.restartAttempts >= 5) {
-      console.warn('[webrtc] giving up on peer after 5 restart attempts', peerId);
+    const now = Date.now();
+    // 'failed' is signalled on connectionState AND iceConnectionState, plus the
+    // disconnect timer may fire alongside: count those as a single attempt.
+    if (now - state.lastAttemptAt < RESTART_COALESCE_MS) return;
+
+    if (state.outageStartedAt === null) state.outageStartedAt = now;
+    if (now - state.outageStartedAt >= RESTART_GIVE_UP_MS) {
+      console.warn(
+        '[webrtc] giving up on peer after',
+        Math.round((now - state.outageStartedAt) / 1000),
+        's of failed restarts',
+        peerId
+      );
       this.closePeer(peerId);
       return;
     }
+
+    state.lastAttemptAt = now;
     state.restartAttempts += 1;
+    const attempt = state.restartAttempts;
+    const kickDelay = state.polite && attempt === 1 ? RESTART_POLITE_FIRST_DELAY_MS : 0;
     console.log(
       '[webrtc] ICE restart attempt',
-      state.restartAttempts,
+      attempt,
       'for',
       peerId,
       'polite:',
-      state.polite
+      state.polite,
+      'kick in',
+      kickDelay,
+      'ms'
     );
 
-    try {
-      if (!state.polite) {
-        // Impolite peer drives the restart. restartIce() flags the next
-        // negotiation to regenerate ICE credentials → onnegotiationneeded fires.
-        state.pc.restartIce();
-      }
-    } catch (err) {
-      console.error('[webrtc] restartIce failed for', peerId, err);
+    if (state.restartKickTimer) {
+      clearTimeout(state.restartKickTimer);
+      state.restartKickTimer = null;
+    }
+    if (kickDelay > 0) {
+      state.restartKickTimer = setTimeout(() => {
+        state.restartKickTimer = null;
+        void this.kickIceRestart(peerId, state);
+      }, kickDelay);
+    } else {
+      void this.kickIceRestart(peerId, state);
     }
 
-    // Re-check later; if still not connected, escalate / retry.
+    // Re-check later; if still not connected, retry with a longer interval.
     if (state.disconnectTimer) clearTimeout(state.disconnectTimer);
     state.disconnectTimer = setTimeout(() => {
       state.disconnectTimer = null;
@@ -791,10 +938,60 @@ export class MeshConnection {
       const now = s.pc.connectionState;
       if (now === 'connected') {
         s.restartAttempts = 0;
+        s.outageStartedAt = null;
         return;
       }
       this.attemptRestart(peerId);
-    }, 6000);
+    }, kickDelay + restartRetryDelay(attempt));
+  }
+
+  /**
+   * The actual restartIce(). restartIce() flags the next negotiation to
+   * regenerate ICE credentials → onnegotiationneeded fires → a new offer goes
+   * out through the existing (unchanged) negotiation path.
+   */
+  private async kickIceRestart(peerId: string, state: PeerState): Promise<void> {
+    if (state.closed || this.states.get(peerId) !== state) return;
+    const pc = state.pc;
+
+    // Nothing to do if it recovered meanwhile, or an ICE restart (ours or the
+    // other side's) is already being checked — restarting again every few
+    // seconds could keep a slow link from ever finishing. A stuck check ends in
+    // 'failed', which triggers the next attempt.
+    const cs = pc.connectionState;
+    if (cs === 'connected' || cs === 'connecting' || cs === 'closed') {
+      console.log('[webrtc] skip restartIce for', peerId, '— connection state', cs);
+      // A skipped attempt must not swallow a real 'failed' event that follows.
+      state.lastAttemptAt = 0;
+      return;
+    }
+
+    // An earlier restart offer that never got an answer (dropped in transit, or
+    // the other side was busy) leaves the pc in have-local-offer, and
+    // restartIce() alone cannot produce a new offer from there. Roll the stale
+    // offer back first. Never while an offer is being created or an answer is
+    // being applied.
+    const offerAgeMs = state.localOfferSince === null ? 0 : Date.now() - state.localOfferSince;
+    const offerStale =
+      pc.signalingState === 'have-local-offer' &&
+      !state.makingOffer &&
+      !state.isSettingRemoteAnswerPending &&
+      offerAgeMs >= STALE_LOCAL_OFFER_MS;
+    if (offerStale) {
+      try {
+        console.log('[webrtc] rolling back unanswered offer to', peerId, 'age ms:', offerAgeMs);
+        await pc.setLocalDescription({ type: 'rollback' });
+      } catch (err) {
+        console.error('[webrtc] rollback of stale offer failed for', peerId, err);
+      }
+      if (state.closed || this.states.get(peerId) !== state) return;
+    }
+
+    try {
+      pc.restartIce();
+    } catch (err) {
+      console.error('[webrtc] restartIce failed for', peerId, err);
+    }
   }
 
   private closePeer(peerId: string) {
@@ -804,6 +1001,10 @@ export class MeshConnection {
       if (state.disconnectTimer) {
         clearTimeout(state.disconnectTimer);
         state.disconnectTimer = null;
+      }
+      if (state.restartKickTimer) {
+        clearTimeout(state.restartKickTimer);
+        state.restartKickTimer = null;
       }
       state.pc.close();
       this.states.delete(peerId);
@@ -869,7 +1070,15 @@ export class MeshConnection {
   }
 
   close() {
-    for (const state of this.states.values()) state.pc.close();
+    for (const state of this.states.values()) {
+      // Retries can now run for minutes: make sure no timer outlives the meeting.
+      state.closed = true;
+      if (state.disconnectTimer) clearTimeout(state.disconnectTimer);
+      if (state.restartKickTimer) clearTimeout(state.restartKickTimer);
+      state.disconnectTimer = null;
+      state.restartKickTimer = null;
+      state.pc.close();
+    }
     this.states.clear();
     this.remoteStreams.clear();
     this.screenSenders.clear();

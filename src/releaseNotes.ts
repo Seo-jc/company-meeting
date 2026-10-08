@@ -41,6 +41,30 @@ export function localizeNote(n: ReleaseNote, lang: Lang): LocalReleaseNote {
  */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '1.12.1',
+    date: '2026-10-08',
+    highlight: {
+      ko: '회의 중 인터넷이 잠깐 끊겨도 자동으로 다시 연결됩니다',
+      en: 'Meetings now reconnect on their own after a brief internet drop',
+    },
+    fixed: {
+      ko: [
+        '인터넷이 잠깐 끊겼다 돌아오면, 회의를 나갔다 들어오지 않아도 자동으로 다시 연결됩니다',
+        '연결이 오래 불안정해도 바로 포기하지 않고 계속 다시 연결을 시도합니다',
+        '회의 코드 입력칸의 안내 글자가 띄엄띄엄 보이던 문제를 고쳤습니다',
+      ],
+      en: [
+        'After a brief internet drop, you are reconnected automatically — no need to leave and rejoin',
+        'An unstable connection keeps retrying instead of giving up early',
+        'Fixed the oddly spaced hint text in the meeting code fields',
+      ],
+    },
+    changed: {
+      ko: ['화면 공유·파일 전송·업데이트 오류도 자동으로 보고되어 더 빨리 고칠 수 있습니다'],
+      en: ['Screen share, file transfer and update errors are now reported automatically so they can be fixed sooner'],
+    },
+  },
+  {
     version: '1.12.0',
     date: '2026-07-22',
     highlight: {
