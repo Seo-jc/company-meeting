@@ -641,6 +641,44 @@ export class Room {
 
     if (msg.type === 'hello') {
       console.log('[Room] hello from', msg.peerId, msg.displayName);
+
+      // Retire any earlier session of this same peer. A dropped network leaves
+      // the old socket half-open here until a send to it fails; when it finally
+      // closes, announcing `peer-left` then would tear down the connections the
+      // peer has just rebuilt over its new socket. Announce the old session's
+      // exit now — before the fresh offers arrive, so everyone drops their stale
+      // connection first — and detach it so its eventual close stays silent.
+      const retired = new Set<WebSocket>();
+      for (const other of this.state.getWebSockets()) {
+        if (other === ws) continue;
+        const prev = this.getAttachment(other);
+        if (!prev || prev.peerId !== msg.peerId) continue;
+        other.serializeAttachment(null);
+        this.annotationRate.delete(other);
+        void this.reportPresence('leave', {
+          country: prev.geo?.country ?? null,
+          durationMs: prev.connectedAt ? Date.now() - prev.connectedAt : 0,
+        });
+        try {
+          other.close(1000, 'replaced by a newer session');
+        } catch {
+          // already gone
+        }
+        retired.add(other);
+      }
+      if (retired.size > 0) {
+        console.log('[Room] retired', retired.size, 'stale session(s) of', msg.peerId);
+        const leftText = JSON.stringify({ type: 'peer-left', peerId: msg.peerId });
+        for (const other of this.state.getWebSockets()) {
+          if (other === ws || retired.has(other)) continue;
+          try {
+            other.send(leftText);
+          } catch {
+            // a dead socket is cleaned up by its own close
+          }
+        }
+      }
+
       const connectedAt = Date.now();
       const geo = this.pendingGeo ?? undefined;
       this.pendingGeo = null;
