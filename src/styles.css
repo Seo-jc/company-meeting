@@ -1988,6 +1988,16 @@ input {
   border-color: #1abc9c;
 }
 
+/* The wide letter-spacing above makes typed codes easy to read, but ::placeholder
+   inherits it (and the monospace stack), so the hint text looked like
+   "고 정  코 드". Give the hint normal spacing and the regular UI font; typed
+   text keeps the spaced monospace look. */
+.code-input::placeholder {
+  letter-spacing: normal;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR',
+    'Malgun Gothic', Roboto, sans-serif;
+}
+
 .saved-meetings {
   display: none; /* moved to lobby-saved-panel */
 }

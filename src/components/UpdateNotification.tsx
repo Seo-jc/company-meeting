@@ -1,5 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useT } from '../i18n';
+import { describeError, sendBugReport } from '../lib/bugReporter';
+
+/** Tell the admin an update step failed (throttled per type inside bugReporter). */
+function reportUpdateFailure(stage: 'updater' | 'apply', err: unknown) {
+  const { name, message } = describeError(err);
+  void sendBugReport({
+    type: 'update-failed',
+    severity: 'warning',
+    message: 'Update failed',
+    details: { stage, errorName: name, error: message },
+  });
+}
 
 const STR = {
   ko: {
@@ -47,6 +59,7 @@ export default function UpdateNotification() {
     const api = window.electronAPI;
     if (!api?.onUpdateStatus) return;
     const off = api.onUpdateStatus((s) => {
+      if (s.kind === 'error') reportUpdateFailure('updater', s.message);
       setStatus((prev) => {
         // Preserve version across progress events (electron-updater doesn't send version on progress)
         if (s.kind === 'progress' && prev.kind !== 'idle' && 'version' in prev && prev.version) {
@@ -113,6 +126,7 @@ export default function UpdateNotification() {
       await window.electronAPI?.applyUpdate();
     } catch (err) {
       console.error('[updater] apply failed', err);
+      reportUpdateFailure('apply', err);
       setApplying(false);
     }
   };

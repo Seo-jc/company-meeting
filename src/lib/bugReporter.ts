@@ -46,11 +46,65 @@ export type BugReportInput = {
 const RECENT_SEND_WINDOW_MS = 60_000;
 const sentFingerprints = new Map<string, number>();
 
+// These types are sent from recurring failure points (a stuck data channel, a
+// broken updater feed, a blocked capture API) and their wording varies. Throttle
+// them by TYPE alone, otherwise varying text slips past the message fingerprint
+// and floods the server's capped store (500 reports; oldest are dropped first).
+const THROTTLE_BY_TYPE: ReadonlySet<ReportType> = new Set<ReportType>([
+  'screen-share-failed',
+  'file-transfer-failed',
+  'update-failed',
+]);
+
+// A failed update check tends to repeat on EVERY launch for as long as the cause
+// lasts (e.g. a broken release feed), so also hold off across app restarts.
+const PERSISTED_COOLDOWN_MS: Partial<Record<ReportType, number>> = {
+  'update-failed': 6 * 60 * 60 * 1000,
+};
+const PERSISTED_KEY_PREFIX = 'pikmeeting.lastReportAt.';
+
+function inPersistedCooldown(type: ReportType): boolean {
+  const cooldown = PERSISTED_COOLDOWN_MS[type];
+  if (!cooldown) return false;
+  try {
+    const last = Number(localStorage.getItem(PERSISTED_KEY_PREFIX + type));
+    return last > 0 && Date.now() - last < cooldown;
+  } catch {
+    return false; // storage unavailable → rely on the in-memory throttle only
+  }
+}
+
+function markPersistedSent(type: ReportType): void {
+  if (!PERSISTED_COOLDOWN_MS[type]) return;
+  try {
+    localStorage.setItem(PERSISTED_KEY_PREFIX + type, String(Date.now()));
+  } catch {
+    // ignore
+  }
+}
+
 let initialized = false;
 let reportingInFlight = false;
 
 function fingerprint(r: BugReportInput): string {
+  if (THROTTLE_BY_TYPE.has(r.type)) return r.type;
   return `${r.type}|${r.message.slice(0, 100)}`;
+}
+
+/**
+ * Reduce an error to a short single-line name/message that is safe to attach to
+ * a report: first line only, capped in length, and with user-profile folder
+ * names masked (error text can embed paths like C:\Users\<name>\AppData\...).
+ */
+export function describeError(e: unknown): { name: string; message: string } {
+  const name = e instanceof Error ? e.name : typeof e;
+  let message = e instanceof Error ? e.message : typeof e === 'string' ? e : '';
+  message = (message.split(/\r?\n/)[0] ?? '')
+    // Folder names may contain spaces, so mask up to the next separator.
+    .replace(/([A-Za-z]:[\\/]+Users[\\/]+)[^\\/'"]+/gi, '$1<user>')
+    .replace(/(\/(?:Users|home)\/)[^/'"]+/g, '$1<user>')
+    .slice(0, 200);
+  return { name: name.slice(0, 60), message };
 }
 
 function shouldSkip(r: BugReportInput): boolean {
@@ -86,6 +140,7 @@ export async function sendBugReport(r: BugReportInput): Promise<boolean> {
     // Avoid stampede; skip auto reports during in-flight one.
     return false;
   }
+  if (inPersistedCooldown(r.type)) return false;
   if (shouldSkip(r)) return false;
 
   reportingInFlight = true;
@@ -124,6 +179,8 @@ export async function sendBugReport(r: BugReportInput): Promise<boolean> {
         body: JSON.stringify(payload),
         signal: ctrl.signal,
       });
+      // Only a delivered report starts the across-restart cooldown.
+      if (resp.ok) markPersistedSent(r.type);
       return resp.ok;
     } finally {
       clearTimeout(t);
