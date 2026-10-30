@@ -39,6 +39,10 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5173,
       strictPort: true,
+      // Test output and build folders are not app source. Excel holds its temp
+      // files locked while rendering into mockups/, and watching them crashed
+      // the dev server (EBUSY).
+      watch: { ignored: ['**/mockups/**', '**/release/**', '**/signaling/**'] },
     },
     build: {
       outDir: 'dist',
