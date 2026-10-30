@@ -1,9 +1,10 @@
 import { app, BrowserWindow, ipcMain, desktopCapturer, session, dialog, shell } from 'electron';
-import { join } from 'path';
+import { isAbsolute, join } from 'path';
 import { promises as fsp } from 'fs';
 import type { FileHandle } from 'fs/promises';
 import * as os from 'os';
 import { autoUpdater } from 'electron-updater';
+import type { MinutesSaveRequest, MinutesSaveResult } from './minutesTypes';
 
 const isDev = !app.isPackaged;
 
@@ -362,4 +363,57 @@ ipcMain.handle(
 
 ipcMain.handle('recording-open-folder', async (_event, filePath: string) => {
   shell.showItemInFolder(filePath);
+});
+
+// ---------------------------------------------------------------------------
+// Meeting minutes (회의록): the renderer sends the finished minutes as plain data
+// (MinutesExport); the main process builds the .xlsx (minutesExcel.ts) and writes it
+// without ever overwriting an existing file ("name (2).xlsx", ...). Nothing about the
+// minutes is stored by the app itself — the file is the only copy it makes.
+// Folder picking / "open folder" reuse recording-choose-folder / recording-open-folder.
+// ---------------------------------------------------------------------------
+
+/** 다운로드\PikMeeting\회의록 — 녹화와 같은 기본 폴더 아래 «회의록» */
+function defaultMinutesDir(): string {
+  return join(defaultRecordingDir(), '회의록');
+}
+
+// exceljs takes seconds to load (hundreds of modules), so it is NOT imported at startup: the
+// minutes module is loaded on first use. The renderer asks for the default folder when the
+// minutes panel opens, so that call warms the module up in the background.
+let minutesModule: Promise<typeof import('./minutesExcel')> | null = null;
+function loadMinutesModule(): Promise<typeof import('./minutesExcel')> {
+  if (!minutesModule) minutesModule = import('./minutesExcel');
+  return minutesModule;
+}
+
+ipcMain.handle('minutes-get-default-folder', async (): Promise<string> => {
+  loadMinutesModule().catch((err) => {
+    console.warn('[minutes] warm-up failed', err instanceof Error ? err.message : err);
+    minutesModule = null; // allow a retry at save time
+  });
+  return defaultMinutesDir();
+});
+
+ipcMain.handle('minutes-save', async (_event, req: MinutesSaveRequest): Promise<MinutesSaveResult> => {
+  try {
+    const { saveMinutesFile } = await loadMinutesModule();
+    return await saveMinutesFile(req, defaultMinutesDir());
+  } catch (err) {
+    minutesModule = null;
+    console.error('[minutes] save failed', err instanceof Error ? err.message : err);
+    return { ok: false, message: '엑셀 저장 기능을 불러오지 못했습니다. 앱을 다시 실행한 뒤 시도해 주세요.' };
+  }
+});
+
+ipcMain.handle('minutes-open-file', async (_event, filePath: string): Promise<void> => {
+  // Renderer-supplied path → only open an existing absolute .xlsx file (never run arbitrary files).
+  if (typeof filePath !== 'string' || !isAbsolute(filePath) || !/\.xlsx$/i.test(filePath)) return;
+  try {
+    await fsp.access(filePath);
+  } catch {
+    return;
+  }
+  const err = await shell.openPath(filePath);
+  if (err) console.warn('[minutes] openPath failed:', err);
 });

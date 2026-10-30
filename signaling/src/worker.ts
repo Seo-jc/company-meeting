@@ -2,6 +2,7 @@ export interface Env {
   ROOMS: DurableObjectNamespace;
   BUG_REPORTS: DurableObjectNamespace;
   PRESENCE: DurableObjectNamespace;
+  SETTINGS: DurableObjectNamespace;
   GEMINI_API_KEY?: string;
   ADMIN_PASSWORD?: string;
   TURN_TOKEN_ID?: string;
@@ -72,6 +73,27 @@ function isValidAnnotation(msg: any): boolean {
     default:
       return false;
   }
+}
+
+/**
+ * Meeting minutes (Yjs) relay. The server never stores or inspects the content:
+ * it only checks the envelope, caps the size and rate, and forwards it. `data`
+ * is the base64 of a Yjs state vector (sync1) / diff (sync2) / update (update).
+ */
+const MINUTES_KINDS = ['sync1', 'sync2', 'update'];
+const MINUTES_MAX_PER_SEC = 30;
+const MINUTES_MAX_DATA_SYNC2 = 1_500_000;
+const MINUTES_MAX_DATA_OTHER = 200_000;
+const BASE64_BODY = /^[A-Za-z0-9+/]+={0,2}$/;
+
+function isValidMinutes(msg: any): boolean {
+  if (typeof msg.kind !== 'string' || !MINUTES_KINDS.includes(msg.kind)) return false;
+  // `to` is optional (absent/null = broadcast); when present it must name a peer.
+  if (msg.to != null && (typeof msg.to !== 'string' || msg.to.length === 0)) return false;
+  if (typeof msg.data !== 'string' || msg.data.length === 0) return false;
+  const max = msg.kind === 'sync2' ? MINUTES_MAX_DATA_SYNC2 : MINUTES_MAX_DATA_OTHER;
+  if (msg.data.length > max) return false;
+  return BASE64_BODY.test(msg.data);
 }
 
 const CORS_HEADERS = {
@@ -183,6 +205,44 @@ async function handleSummarize(request: Request, env: Env): Promise<Response> {
       { status: 500, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } }
     );
   }
+}
+
+/** logo <= 400,000 chars + name/docNo/password and JSON overhead, with headroom. */
+const COMPANY_MAX_BODY_BYTES = 450_000;
+
+/**
+ * Read a request body as text, giving up (null) once it exceeds `maxBytes`.
+ * Checks Content-Length first, then counts while streaming, so a chunked body
+ * with no declared length cannot be buffered without bound.
+ */
+async function readTextLimited(request: Request, maxBytes: number): Promise<string | null> {
+  const declared = Number(request.headers.get('Content-Length'));
+  if (Number.isFinite(declared) && declared > maxBytes) return null;
+  if (!request.body) return '';
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      try {
+        await reader.cancel();
+      } catch {
+        // ignore
+      }
+      return null;
+    }
+    chunks.push(value);
+  }
+  const buf = new Uint8Array(total);
+  let offset = 0;
+  for (const c of chunks) {
+    buf.set(c, offset);
+    offset += c.byteLength;
+  }
+  return new TextDecoder().decode(buf);
 }
 
 export default {
@@ -423,6 +483,47 @@ export default {
     }
     // ============== End presence/stats ==============
 
+    // ============== Company form settings (logo / name / doc no.) ==============
+    // Public read (every PC fetches it, then caches); admin-only write.
+    if (url.pathname === '/api/company' && request.method === 'GET') {
+      const obj = env.SETTINGS.get(env.SETTINGS.idFromName('global'));
+      const resp = await obj.fetch(new Request('https://internal/get'));
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...CORS_HEADERS,
+      };
+      if (resp.ok) headers['Cache-Control'] = 'max-age=60';
+      return new Response(await resp.text(), { status: resp.status, headers });
+    }
+
+    if (url.pathname === '/api/company' && request.method === 'POST') {
+      // Cap the body before buffering it: only the logo is large (<= 400,000 chars).
+      const text = await readTextLimited(request, COMPANY_MAX_BODY_BYTES);
+      if (text === null) {
+        return new Response(JSON.stringify({ error: 'payload too large' }), {
+          status: 413,
+          headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
+        });
+      }
+      const obj = env.SETTINGS.get(env.SETTINGS.idFromName('global'));
+      const resp = await obj.fetch(
+        new Request('https://internal/set', {
+          method: 'POST',
+          body: text,
+          // Set here, never taken from the caller: it keys the failed-attempt limit.
+          headers: { 'X-Client-Ip': request.headers.get('CF-Connecting-IP') ?? 'unknown' },
+        })
+      );
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...CORS_HEADERS,
+      };
+      const retryAfter = resp.headers.get('Retry-After');
+      if (retryAfter) headers['Retry-After'] = retryAfter;
+      return new Response(await resp.text(), { status: resp.status, headers });
+    }
+    // ============== End company settings ==============
+
     const debugMatch = url.pathname.match(/^\/room\/([A-Z0-9]{4,10})\/debug$/);
     if (debugMatch) {
       const id = env.ROOMS.idFromName(debugMatch[1]);
@@ -463,6 +564,8 @@ export class Room {
   private pendingGeo: Geo | null = null;
   // Annotation flood protection, per connection. Cleared when the socket closes.
   private annotationRate = new Map<WebSocket, { count: number; windowStart: number }>();
+  // Same idea for meeting-minutes sync messages.
+  private minutesRate = new Map<WebSocket, { count: number; windowStart: number }>();
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -655,6 +758,7 @@ export class Room {
         if (!prev || prev.peerId !== msg.peerId) continue;
         other.serializeAttachment(null);
         this.annotationRate.delete(other);
+        this.minutesRate.delete(other);
         void this.reportPresence('leave', {
           country: prev.geo?.country ?? null,
           durationMs: prev.connectedAt ? Date.now() - prev.connectedAt : 0,
@@ -773,22 +877,73 @@ export class Room {
       this.broadcastExcept(ws, { type: 'recording', from: msg.from, active: msg.active });
       return;
     }
+
+    // Meeting-minutes (Yjs) sync. Relayed only — never stored and never logged,
+    // since the content is the meeting itself. Rebuilt from the checked fields so
+    // nothing else the sender attached rides along.
+    if (msg.type === 'minutes') {
+      if (!this.allowRate(this.minutesRate, ws, MINUTES_MAX_PER_SEC)) return;
+      // The sender does not get to claim someone else's identity.
+      const att = this.getAttachment(ws);
+      if (!att?.peerId || msg.from !== att.peerId) return;
+      if (!isValidMinutes(msg)) return;
+      const out: Record<string, unknown> = {
+        type: 'minutes',
+        from: att.peerId,
+        kind: msg.kind,
+        data: msg.data,
+      };
+      if (msg.to != null) {
+        if (msg.to === att.peerId) return;
+        out.to = msg.to;
+        this.sendToPeerId(msg.to, out);
+      } else {
+        this.broadcastToPeersExcept(ws, out);
+      }
+      return;
+    }
   }
 
   /**
-   * Per-connection cap on annotation messages. Clients throttle themselves well
-   * below this; the cap only stops a runaway or hostile sender.
+   * Like broadcastExcept, but only to connections that have completed 'hello':
+   * a socket that merely opened the room URL must not receive meeting content.
    */
-  private allowAnnotation(ws: WebSocket): boolean {
+  private broadcastToPeersExcept(skip: WebSocket, payload: unknown) {
+    const text = JSON.stringify(payload);
+    for (const ws of this.state.getWebSockets()) {
+      if (ws === skip) continue;
+      if (!this.getAttachment(ws)?.peerId) continue;
+      try {
+        ws.send(text);
+      } catch {
+        // a dead socket is cleaned up by its own close
+      }
+    }
+  }
+
+  /**
+   * Fixed one-second window, per connection. Clients throttle themselves well
+   * below these caps; they only stop a runaway or hostile sender.
+   */
+  private allowRate(
+    buckets: Map<WebSocket, { count: number; windowStart: number }>,
+    ws: WebSocket,
+    maxPerSec: number
+  ): boolean {
     const now = Date.now();
-    const bucket = this.annotationRate.get(ws);
+    const bucket = buckets.get(ws);
     if (!bucket || now - bucket.windowStart >= 1000) {
-      this.annotationRate.set(ws, { count: 1, windowStart: now });
+      buckets.set(ws, { count: 1, windowStart: now });
       return true;
     }
-    if (bucket.count >= ANNOTATION_MAX_PER_SEC) return false;
+    if (bucket.count >= maxPerSec) return false;
     bucket.count++;
     return true;
+  }
+
+  /** Per-connection cap on annotation messages. */
+  private allowAnnotation(ws: WebSocket): boolean {
+    return this.allowRate(this.annotationRate, ws, ANNOTATION_MAX_PER_SEC);
   }
 
   async webSocketClose(
@@ -800,6 +955,7 @@ export class Room {
     const att = this.getAttachment(ws);
     console.log('[Room] webSocketClose', { code, reason, wasClean, peerId: att?.peerId });
     this.annotationRate.delete(ws);
+    this.minutesRate.delete(ws);
     if (att) {
       const durationMs = att.connectedAt ? Date.now() - att.connectedAt : 0;
       void this.reportPresence('leave', {
@@ -1056,5 +1212,166 @@ export class PresenceDO {
     }
 
     return new Response('Not found', { status: 404 });
+  }
+}
+
+// ============== Settings Durable Object (company form: logo / name / doc no.) ==============
+// One record, shared by every PC. Holds the only thing the server persists for the
+// minutes feature — the letterhead — never any meeting content.
+// Failed admin attempts are counted per client here (not in the Worker) because a
+// Worker isolate's memory is neither shared nor durable, so a limit kept there
+// would not hold.
+const COMPANY_NAME_MAX = 60;
+const COMPANY_DOCNO_MAX = 40;
+const COMPANY_LOGO_MAX = 400_000;
+const COMPANY_LOGO_PREFIXES = ['data:image/png;base64,', 'data:image/jpeg;base64,'];
+const COMPANY_FAIL_MAX = 10; // failed password attempts allowed per window
+const COMPANY_FAIL_WINDOW_MS = 10 * 60 * 1000;
+const FAIL_PRUNE_EVERY_MS = 60 * 1000;
+
+type CompanyRecord = { name: string; docNo: string; logo: string | null; updatedAt: number };
+type FailRecord = { count: number; windowStart: number };
+
+async function sha256(text: string): Promise<Uint8Array> {
+  return new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)));
+}
+
+/** Compares digests of both sides, so neither the value nor its length leaks via timing. */
+async function safeEqual(a: string, b: string): Promise<boolean> {
+  const [x, y] = await Promise.all([sha256(a), sha256(b)]);
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
+  return diff === 0;
+}
+
+function jsonResponse(status: number, body: unknown, extra: Record<string, string> = {}): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...extra },
+  });
+}
+
+export class SettingsDO {
+  private state: DurableObjectState;
+  private env: Env;
+  private lastPrune = 0;
+
+  constructor(state: DurableObjectState, env: Env) {
+    this.state = state;
+    this.env = env;
+  }
+
+  async fetch(request: Request): Promise<Response> {
+    const path = new URL(request.url).pathname;
+    if (path === '/get' && request.method === 'GET') return this.get();
+    if (path === '/set' && request.method === 'POST') return this.set(request);
+    return new Response('Not found', { status: 404 });
+  }
+
+  private async get(): Promise<Response> {
+    const rec = await this.state.storage.get<CompanyRecord>('company');
+    return jsonResponse(200, {
+      name: rec?.name ?? '',
+      docNo: rec?.docNo ?? '',
+      logo: rec?.logo ?? null,
+      updatedAt: rec?.updatedAt ?? 0,
+    });
+  }
+
+  private async set(request: Request): Promise<Response> {
+    let body: any;
+    try {
+      body = JSON.parse(await request.text());
+    } catch {
+      return jsonResponse(400, { error: 'invalid json' });
+    }
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return jsonResponse(400, { error: 'invalid body' });
+    }
+
+    const admin = (this.env.ADMIN_PASSWORD ?? '').trim();
+    if (!admin) return jsonResponse(503, { error: 'admin not configured' });
+
+    // Everything that needs a non-storage await comes first. The storage steps
+    // below then run back to back, so concurrent attempts cannot both read the
+    // same failure count and undercount.
+    const given = typeof body.password === 'string' ? body.password : '';
+    const clientIp = request.headers.get('X-Client-Ip') ?? 'unknown';
+    const [match, ipDigest] = await Promise.all([safeEqual(given, admin), sha256(clientIp)]);
+    // Only a digest of the address is kept, and only for the length of the window.
+    const failKey =
+      'fail:' +
+      Array.from(ipDigest.slice(0, 16), (b) => b.toString(16).padStart(2, '0')).join('');
+
+    const now = Date.now();
+    const stored = await this.state.storage.get<FailRecord>(failKey);
+    const rec = stored && now - stored.windowStart < COMPANY_FAIL_WINDOW_MS ? stored : null;
+
+    // Locked out: refuse even a correct password until the window has passed.
+    if (rec && rec.count >= COMPANY_FAIL_MAX) {
+      const retryAfter = Math.max(
+        1,
+        Math.ceil((rec.windowStart + COMPANY_FAIL_WINDOW_MS - now) / 1000)
+      );
+      return jsonResponse(
+        429,
+        { error: 'too many attempts', retryAfter },
+        { 'Retry-After': String(retryAfter) }
+      );
+    }
+
+    if (!match) {
+      await this.state.storage.put<FailRecord>(failKey, {
+        count: (rec?.count ?? 0) + 1,
+        windowStart: rec?.windowStart ?? now,
+      });
+      await this.pruneFailures(now);
+      return jsonResponse(403, { error: 'forbidden' });
+    }
+    if (stored) await this.state.storage.delete(failKey);
+
+    // Authenticated. A request that is wrong in shape is the caller's bug, not an attack.
+    const { name, docNo, logo } = body;
+    if (typeof name !== 'string' || typeof docNo !== 'string') {
+      return jsonResponse(400, { error: 'name and docNo must be strings' });
+    }
+    const cleanName = name.trim();
+    const cleanDocNo = docNo.trim();
+    if (cleanName.length > COMPANY_NAME_MAX) return jsonResponse(400, { error: 'name too long' });
+    if (cleanDocNo.length > COMPANY_DOCNO_MAX) return jsonResponse(400, { error: 'docNo too long' });
+    // These end up in the workbook's header/footer, where a line break would break the layout.
+    if (/[\u0000-\u001f\u007f]/.test(cleanName) || /[\u0000-\u001f\u007f]/.test(cleanDocNo)) {
+      return jsonResponse(400, { error: 'control characters not allowed' });
+    }
+    if (logo !== null) {
+      if (typeof logo !== 'string') return jsonResponse(400, { error: 'logo must be null or string' });
+      const prefix = COMPANY_LOGO_PREFIXES.find((p) => logo.startsWith(p));
+      if (!prefix) return jsonResponse(400, { error: 'logo must be a PNG or JPEG data URL' });
+      if (logo.length > COMPANY_LOGO_MAX) return jsonResponse(400, { error: 'logo too large' });
+      if (!BASE64_BODY.test(logo.slice(prefix.length))) {
+        return jsonResponse(400, { error: 'logo is not valid base64' });
+      }
+    }
+
+    const updatedAt = Date.now();
+    await this.state.storage.put<CompanyRecord>('company', {
+      name: cleanName,
+      docNo: cleanDocNo,
+      logo,
+      updatedAt,
+    });
+    return jsonResponse(200, { ok: true, updatedAt });
+  }
+
+  /** Drops expired failure counters, at most once a minute. */
+  private async pruneFailures(now: number): Promise<void> {
+    if (now - this.lastPrune < FAIL_PRUNE_EVERY_MS) return;
+    this.lastPrune = now;
+    const all = await this.state.storage.list<FailRecord>({ prefix: 'fail:' });
+    const expired: string[] = [];
+    for (const [key, value] of all) {
+      if (now - value.windowStart >= COMPANY_FAIL_WINDOW_MS) expired.push(key);
+    }
+    if (expired.length > 0) await this.state.storage.delete(expired);
   }
 }

@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { IpcRendererEvent } from 'electron';
+import type { MinutesExport, MinutesSaveResult } from './minutesTypes';
 
 export type ScreenSource = {
   id: string;
@@ -47,5 +48,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('recording-stop'),
   openRecordingFolder: (filePath: string): Promise<void> =>
     ipcRenderer.invoke('recording-open-folder', filePath),
+  getDefaultMinutesFolder: (): Promise<string> =>
+    ipcRenderer.invoke('minutes-get-default-folder'),
+  saveMinutes: (req: { dir: string; doc: MinutesExport }): Promise<MinutesSaveResult> =>
+    ipcRenderer.invoke('minutes-save', req),
+  openMinutesFile: (filePath: string): Promise<void> =>
+    ipcRenderer.invoke('minutes-open-file', filePath),
   platform: process.platform,
 });
