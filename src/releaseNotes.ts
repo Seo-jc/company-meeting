@@ -41,6 +41,36 @@ export function localizeNote(n: ReleaseNote, lang: Lang): LocalReleaseNote {
  */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '1.13.0',
+    date: '2026-10-30',
+    highlight: {
+      ko: '회의록 · 회의 녹화 · 화면 주석 기능이 추가되었습니다',
+      en: 'Added meeting minutes, meeting recording and on-screen annotation',
+    },
+    added: {
+      ko: [
+        '📝 회의록 — 참석자 모두가 한 문서를 실시간으로 함께 씁니다. 참석자는 자동으로 채워지고, 안건마다 굵게·기울임·글자 크기·색과 특수문자를 쓸 수 있습니다',
+        '회의록의 «💾 엑셀로 저장»을 누르면 로고·결재란이 들어간 엑셀 파일이 한국시간 기준으로 만들어집니다. 나갈 때 저장 여부를 물어보고, 저장 전 내용은 이 PC에 임시 보관되어 다시 들어오면 복구할 수 있습니다',
+        '⏺️ 회의 녹화 — 회의 화면과 소리를 mp4 파일 하나로 저장합니다. 시작 전에 확인 창이 뜨고 모든 참가자에게 «녹화 중»이 표시되며, 저장 폴더를 고를 수 있습니다',
+        '발표자가 바뀌거나 화면 공유가 잠시 끊겨도 녹화는 멈추지 않고 한 파일로 이어집니다',
+        '🖊️ 화면 주석 — 공유 화면 위에 펜·화살표·네모·글자·레이저·지우개로 표시하면 모든 참가자에게 같이 보입니다. 🖊️ 단추로 켜고 끌 수 있습니다',
+        '관리자는 로비의 «🏢 회사 양식»에서 회사 로고·회사명·문서번호를 정해 회의록 엑셀에 넣을 수 있습니다',
+      ],
+      en: [
+        '📝 Minutes — everyone in the meeting writes one shared document together in real time. Attendees fill in automatically, and each agenda item supports bold, italic, text size, colors and special characters',
+        'Press «💾 Save as Excel» to get an Excel file with the logo and approval boxes, using Korean time. You are asked about saving when you leave, and unsaved text is kept on this PC so you can restore it when you rejoin',
+        '⏺️ Meeting recording — saves the meeting screen and sound as one mp4 file. A confirmation window appears first, everyone sees «Recording», and you can choose the save folder',
+        'The recording keeps going as one file even when the presenter changes or a screen share drops for a moment',
+        '🖊️ On-screen annotation — mark up a shared screen with pen, arrow, rectangle, text, laser and eraser, and everyone sees it. Turn it on and off with the 🖊️ button',
+        'Admins can set the company logo, name and document number from «🏢 Company form» in the lobby so they appear in the minutes Excel',
+      ],
+    },
+    changed: {
+      ko: ['연결 안정성이 개선되었습니다'],
+      en: ['Improved connection stability'],
+    },
+  },
+  {
     version: '1.12.1',
     date: '2026-10-08',
     highlight: {

@@ -710,6 +710,16 @@ export default function MeetingRoom({
     audioMixerRef.current?.updatePeers(peers.map((p) => ({ peerId: p.peerId, stream: p.stream })));
   }, [peers]);
 
+  // The "recording started" notice is a one-off broadcast the server does not
+  // remember, so someone who joins (or rejoins) mid-recording would never see
+  // the indicator. Re-announce whenever the participant set changes; receivers
+  // treat a repeated `active: true` as a no-op.
+  const peerIdsKey = peers.map((p) => p.peerId).sort().join(',');
+  useEffect(() => {
+    if (!recording) return;
+    meshRef.current?.sendRecording(true);
+  }, [recording, peerIdsKey]);
+
   // Best-effort safety net for an abrupt unmount (e.g. window close) while
   // recording: close the Electron file handle so it isn't left dangling.
   // The graceful path (leave button) is handled by handleLeaveClick instead,

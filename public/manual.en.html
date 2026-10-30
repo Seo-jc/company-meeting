@@ -373,9 +373,13 @@
       <li><span class="num">7.</span><span class="name">Chat &amp; File Sharing (Screen Example)</span><span class="page-num">8</span></li>
       <li><span class="num">8.</span><span class="name">Active Speaker Highlight</span><span class="page-num">9</span></li>
       <li><span class="num">9.</span><span class="name">Listen-only Mode (Screen Example)</span><span class="page-num">9</span></li>
-      <li><span class="num">10.</span><span class="name">Auto-update (Screen Example)</span><span class="page-num">10</span></li>
-      <li><span class="num">11.</span><span class="name">Troubleshooting</span><span class="page-num">11</span></li>
-      <li><span class="num">12.</span><span class="name">FAQ</span><span class="page-num">12</span></li>
+      <li><span class="num">10.</span><span class="name">On-screen Annotation (Screen Example)</span><span class="page-num">10</span></li>
+      <li><span class="num">11.</span><span class="name">Meeting Recording (Screen Example)</span><span class="page-num">11</span></li>
+      <li><span class="num">12.</span><span class="name">Meeting Minutes (Screen Example)</span><span class="page-num">12</span></li>
+      <li><span class="num">13.</span><span class="name">Company Form Settings (Admins)</span><span class="page-num">14</span></li>
+      <li><span class="num">14.</span><span class="name">Auto-update (Screen Example)</span><span class="page-num">15</span></li>
+      <li><span class="num">15.</span><span class="name">Troubleshooting</span><span class="page-num">16</span></li>
+      <li><span class="num">16.</span><span class="name">FAQ</span><span class="page-num">17</span></li>
     </ul>
 
     <div class="tip" style="margin-top: 2.5rem;">
@@ -402,6 +406,7 @@
       <li><span class="ico">🔊</span><div class="body"><strong>Automatic active speaker highlight</strong>A teal border appears around the tile of whoever is currently speaking.</div></li>
       <li><span class="ico">🎧</span><div class="body"><strong>Listen-only mode</strong>Join with chat and listening only, even from a PC without a microphone.</div></li>
       <li><span class="ico">📌</span><div class="body"><strong>Saved meetings &amp; recent meetings</strong>Save meeting rooms you use often for quick, one-click entry.</div></li>
+      <li><span class="ico">🖊️</span><div class="body"><strong>Annotation · Recording · Minutes</strong>Mark up, record, and write together, then save to Excel. (Ch. 10-12)</div></li>
       <li><span class="ico">🔄</span><div class="body"><strong>Auto-update</strong>When a new version is released, the app downloads and installs it automatically.</div></li>
     </ul>
 
@@ -571,6 +576,7 @@
     <h1 class="section-title">5. Meeting Screen</h1>
 
     <div class="mockup-wrap">
+      <div style="width: 400px; flex-shrink: 0;">
       <div class="mockup" style="width: 400px;">
         <div class="mockup-titlebar"><span class="mockup-titlebar-text">PikMeeting</span></div>
         <div style="display: flex; justify-content: space-between; padding: 0.45rem 0.7rem; border-bottom: 1px solid #2a2e36; background: #1a1d23; font-size: 8pt;">
@@ -602,12 +608,17 @@
             <div style="font-size: 7pt; color: #1abc9c;">Screen sharing</div>
           </div>
         </div>
-        <div class="mock-control-bar">
+        <div class="mock-control-bar" style="gap: 0.55rem;">
           <div class="mock-control-item"><div class="ico">🎤</div><span>Mute ❺</span></div>
           <div class="mock-control-item"><div class="ico">🖥️</div><span>Screen share ❻</span></div>
+          <div class="mock-control-item"><div class="ico">🖊️</div><span>Annotate</span></div>
+          <div class="mock-control-item"><div class="ico">⏺️</div><span>Record</span></div>
           <div class="mock-control-item"><div class="ico">💬</div><span>Chat ❼</span></div>
+          <div class="mock-control-item"><div class="ico">📝</div><span>Minutes</span></div>
           <div class="mock-control-item"><div class="ico danger">📞</div><span>Leave ❽</span></div>
         </div>
+      </div>
+      <p style="font-size: 9.5pt; color: #374151; margin-top: 0.6rem;">The 🖊️ Annotate · ⏺️ Record · 📝 Minutes buttons are explained in chapters 10-12.</p>
       </div>
       <div class="legend">
         <ol>
@@ -810,9 +821,311 @@
     </div>
   </section>
 
-  <!-- ============ 10. AUTO UPDATE ============ -->
+  <!-- ============ 10. SCREEN ANNOTATION ============ -->
   <section class="page">
-    <h1 class="section-title">10. Auto-update</h1>
+    <h1 class="section-title">10. On-screen Annotation</h1>
+    <p>While a screen is being shared, you can explain things by marking it up with a pen, arrows, rectangles, text and a laser pointer. What you draw is <strong>visible to everyone in the meeting.</strong></p>
+
+    <div class="mockup-wrap">
+      <div class="mockup" style="width: 360px;">
+        <div class="mockup-titlebar"><span class="mockup-titlebar-text">PikMeeting</span></div>
+        <div style="position: relative; height: 100px; margin: 0.7rem 0.7rem 0.5rem; background: #0d1117; border: 1px solid #1abc9c; border-radius: 6px; overflow: hidden;">
+          <div style="position: absolute; left: 14px; top: 12px; width: 170px; height: 8px; background: #2a2e36; border-radius: 2px;"></div>
+          <div style="position: absolute; left: 14px; top: 28px; width: 240px; height: 8px; background: #2a2e36; border-radius: 2px;"></div>
+          <div style="position: absolute; left: 14px; top: 44px; width: 200px; height: 8px; background: #2a2e36; border-radius: 2px;"></div>
+          <div style="position: absolute; left: 14px; top: 60px; width: 150px; height: 8px; background: #2a2e36; border-radius: 2px;"></div>
+          <div style="position: absolute; left: 8px; top: 38px; width: 220px; height: 20px; border: 2px solid #f3a14f; border-radius: 3px;"></div>
+          <div style="position: absolute; left: 238px; top: 38px; color: #f3a14f; font-size: 9pt; font-weight: 700;">← Check here!</div>
+          <div style="position: absolute; left: 14px; top: 80px; width: 110px; height: 3px; background: #4f7df3; border-radius: 2px; transform: rotate(-2deg);"></div>
+        </div>
+        <div style="display: flex; justify-content: center; margin-bottom: 0.5rem;">
+          <div style="display: flex; gap: 0.4rem; align-items: center; background: #1a1d23; border: 1px solid #2a2e36; border-radius: 999px; padding: 0.3rem 0.7rem; font-size: 10pt;">
+            <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #f3a14f;"></span><span style="font-size: 8pt;">❷</span>
+            <span style="color: #353a44;">|</span>
+            <span>🖱️</span><span>🔴</span><span>✏️</span><span>➡️</span><span>▭</span><span>🔤</span><span style="font-size: 8pt;">❸</span>
+            <span style="color: #353a44;">|</span>
+            <span>🧹</span><span style="font-size: 8pt;">❹</span>
+            <span style="color: #353a44;">|</span>
+            <span>🔓</span><span style="font-size: 8pt;">❺</span>
+          </div>
+        </div>
+        <div class="mock-control-bar" style="margin-top: 0;">
+          <div class="mock-control-item"><div class="ico">🎤</div><span>Mute</span></div>
+          <div class="mock-control-item"><div class="ico">🖥️</div><span>Screen share</span></div>
+          <div class="mock-control-item"><div class="ico" style="background: #4f7df3;">🖊️</div><span>Annotate ❶</span></div>
+          <div class="mock-control-item"><div class="ico danger">📞</div><span>Leave</span></div>
+        </div>
+      </div>
+      <div class="legend">
+        <ol>
+          <li><strong>Annotate button (🖊️)</strong> — Click to turn the tools on or off. Grayed out when no screen is shared.</li>
+          <li><strong>My color</strong> — The color of your marks; each person gets a different color.</li>
+          <li><strong>Drawing tools</strong> — 🖱️ Select (normal mouse, for zoom/pan) · 🔴 Laser (hold and move; it fades) · ✏️ Pen · ➡️ Arrow · ▭ Rectangle (drag) · 🔤 Text (click, type, <span class="kbd">Enter</span>).</li>
+          <li><strong>Eraser (🧹)</strong> — "Erase my annotations." The person sharing can also "Erase all."</li>
+          <li><strong>Drawing lock (🔓/🔒)</strong> — Only for the person sharing. 🔒 stops others from drawing.</li>
+        </ol>
+      </div>
+    </div>
+
+    <h2>How to Use</h2>
+    <ol class="steps">
+      <li>Someone starts <strong>screen sharing</strong> (you or anyone else).</li>
+      <li>Click <strong>🖊️ Annotate</strong>. A single shared screen enlarges automatically; if several are shared, <strong>double-click</strong> the one you want to mark up.</li>
+      <li>Pick a tool in the bar below the screen and draw. Click <strong>🖊️ Annotate</strong> again to close it; marks you drew stay visible.</li>
+    </ol>
+
+    <div class="tip">
+      <strong>How long do marks stay?</strong><br>
+      Pen, arrow, rectangle and text marks stay until erased or the share ends; only the laser fades. Annotations are also recorded in a recording.
+      It works between participants on v1.13.0 or later; others won't see the marks.
+    </div>
+
+    <div class="page-footer">
+      PikMeeting · <span class="brand">Developed by Seo Jeong-Cheon</span> · Page 10
+    </div>
+  </section>
+
+  <!-- ============ 11. RECORDING ============ -->
+  <section class="page">
+    <h1 class="section-title">11. Meeting Recording</h1>
+    <p>Saves the meeting's <strong>screen and sound as a single video file (MP4)</strong>. Use it to review a meeting afterwards.</p>
+
+    <div class="mockup-wrap">
+      <div class="mockup" style="width: 300px;">
+        <div class="mockup-titlebar"><span class="mockup-titlebar-text">Record this meeting</span></div>
+        <div class="mockup-body">
+          <div style="font-size: 8.5pt; color: #cdd1d8; line-height: 1.5;">All participants will see that the meeting is being recorded. Start now? ❶</div>
+          <div class="mock-card" style="display: flex; gap: 0.5rem; align-items: center;">
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-size: 7pt; color: #9aa0a8;">Save location</div>
+              <div style="font-size: 8pt;">…\Downloads\PikMeeting</div>
+            </div>
+            <div class="mock-btn" style="font-size: 7.5pt;">Change folder ❷</div>
+          </div>
+          <div style="display: flex; gap: 0.4rem; justify-content: flex-end; margin-top: 0.6rem;">
+            <div class="mock-btn">Cancel</div>
+            <div class="mock-btn-primary">Start recording ❸</div>
+          </div>
+        </div>
+      </div>
+      <div class="legend">
+        <ol>
+          <li><strong>Confirmation first</strong> — Click <strong>⏺️ Record</strong> and this window appears; nothing is recorded yet.</li>
+          <li><strong>Save location · Change folder</strong> — Default: <span class="kbd">Downloads\PikMeeting</span>. A folder you pick is used from the next recording on.</li>
+          <li><strong>Start recording</strong> — Recording begins the moment you click.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="mockup-wrap">
+      <div style="display: flex; flex-direction: column; gap: 0.6rem; flex-shrink: 0;">
+        <div class="mockup" style="width: 300px;">
+          <div class="mockup-titlebar"><span class="mockup-titlebar-text">Screen of the person recording</span></div>
+          <div style="text-align: center; padding: 0.6rem 0 0.2rem;">
+            <span style="display: inline-flex; align-items: center; gap: 0.35rem; background: rgba(20, 22, 27, 0.92); border: 1px solid #ef6868; color: #ffb4b4; padding: 0.25rem 0.7rem; border-radius: 999px; font-size: 7.5pt; font-weight: 700;"><span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #ef4444;"></span>Recording 03:21 · my screen ❹</span>
+          </div>
+          <div class="mock-control-bar" style="margin-top: 0.7rem;">
+            <div class="mock-control-item"><div class="ico" style="background: #ef6868;">⏹️</div><span>Stop recording ❺</span></div>
+          </div>
+        </div>
+        <div class="mockup" style="width: 300px;">
+          <div class="mockup-titlebar"><span class="mockup-titlebar-text">Screen of other participants</span></div>
+          <div style="background: #3a1414; color: #ffb4b4; font-weight: 600; padding: 0.4rem; text-align: center; font-size: 8pt;">🔴 Kim is recording ❻</div>
+        </div>
+      </div>
+      <div class="legend">
+        <ol style="counter-reset: cnum 3;">
+          <li><strong>Recording indicator</strong> — Elapsed time and what is recorded (my screen · someone's screen · audio only).</li>
+          <li><strong>Stop recording</strong> — The button becomes ⏹️; recording ends only when you click it.</li>
+          <li><strong>Other participants</strong> see a "○○ is recording" notice.</li>
+        </ol>
+      </div>
+    </div>
+
+    <table>
+      <tr><th style="width: 22%;">Sound · screen</th><td>Your voice and the other participants' voices (muted people excluded) are recorded with the shared screen (annotations included). If you enlarged a screen, the recording follows it; with no screen shared, a notice screen is recorded until someone shares.</td></tr>
+      <tr><th>If the presenter changes</th><td>Even if the person sharing changes or a share drops briefly, recording does not stop — it continues <strong>as one file</strong>.</td></tr>
+      <tr><th>File</th><td>Click ⏹️ Stop recording and a "Recording saved" window shows the file name; <strong>Open folder</strong> takes you to it. Example: <span class="kbd">PikMeeting_meetingcode_20261030_1430.mp4</span></td></tr>
+    </table>
+
+    <div class="warn">
+      <strong>A recording is saved only on the PC of the person who recorded</strong> — never uploaded or sent to others, so handle it with care.
+      If "Can't write to this folder" appears, click <strong>Change folder</strong> or <strong>Retry with default folder</strong>.
+      The "Recording" notice is shown only to participants on v1.13.0 or later.
+    </div>
+
+    <div class="page-footer">
+      PikMeeting · <span class="brand">Developed by Seo Jeong-Cheon</span> · Page 11
+    </div>
+  </section>
+
+  <!-- ============ 12. MEETING MINUTES ============ -->
+  <section class="page">
+    <h1 class="section-title">12. Meeting Minutes</h1>
+    <p>Click the <strong>📝 Minutes</strong> button below the meeting screen and the minutes open on the right. Everyone writes <strong>the same minutes together in real time</strong>, then saves them as an <strong>Excel file</strong>. (They never open together with chat — opening one closes the other.)</p>
+
+    <div class="mockup-wrap">
+      <div class="mockup" style="width: 330px;">
+        <div class="mockup-titlebar"><span class="mockup-titlebar-text">📝 Minutes</span></div>
+        <div class="mockup-body" style="padding: 0.6rem 0.7rem; font-size: 7.5pt;">
+          <div style="display: flex; justify-content: space-between; color: #9aa0a8; margin-bottom: 0.3rem;">
+            <span><span style="color: #1abc9c;">●</span> Live sharing ❶</span>
+            <span>Park is editing the agenda…</span>
+          </div>
+          <div class="mock-section-title">Meeting info ❷</div>
+          <div class="mock-card" style="padding: 0.4rem 0.5rem; margin: 0.15rem 0 0.3rem;">
+            <div class="mock-row" style="margin: 0.15rem 0; gap: 0.4rem;"><span style="width: 46px; color: #9aa0a8;">Purpose</span><div class="mock-input" style="flex: 1; margin: 0;">Weekly work review</div></div>
+            <div class="mock-row" style="margin: 0.15rem 0; gap: 0.4rem;"><span style="width: 46px; color: #9aa0a8;">Date/time</span><div class="mock-input" style="flex: 1; margin: 0;">2026-10-30 14:00 ~ auto on save</div><span style="color: #1abc9c;">KST</span></div>
+            <div class="mock-row" style="margin: 0.15rem 0; gap: 0.4rem;"><span style="width: 46px; color: #9aa0a8;">Location</span><div class="mock-input" style="flex: 1; margin: 0;">웹 미팅</div><span style="color: #1abc9c;">auto</span></div>
+            <div class="mock-row" style="margin: 0.15rem 0; gap: 0.4rem;"><span style="width: 46px; color: #9aa0a8;">Author</span><div class="mock-input" style="flex: 1; margin: 0;">Kim</div><span style="color: #1abc9c;">auto</span></div>
+          </div>
+          <div class="mock-section-title">Attendees 3 total (connected 2 · with 1) ❸ <span style="float: right; color: #1abc9c;">＋ Add guest</span></div>
+          <div class="mock-card" style="padding: 0.4rem 0.5rem; margin: 0.15rem 0 0.3rem; line-height: 1.7;">
+            <div><span style="color: #1abc9c;">●</span> Kim (me) · QA team · Manager <span style="float: right; color: #9aa0a8;">＋ With</span></div>
+            <div>　└ <span style="color: #9aa0a8;">with</span> Lee · QA team · Staff</div>
+            <div><span style="color: #1abc9c;">●</span> Park · Production · Senior</div>
+          </div>
+          <div class="mock-section-title">Agenda ❹ <span style="float: right; color: #1abc9c;">＋ Add item</span></div>
+          <div class="mock-card" style="padding: 0.4rem 0.5rem; margin: 0.15rem 0 0.3rem; line-height: 1.7;">
+            <div>① New product schedule <span style="float: right; color: #9aa0a8;">Production / QA</span></div>
+            <div>② Defect status <span style="float: right; color: #9aa0a8;">QA</span></div>
+          </div>
+          <div class="mock-section-title">Notes ❺</div>
+          <div style="display: flex; gap: 0.15rem; align-items: center; margin: 0.15rem 0 0.25rem;">
+            <span class="mock-btn" style="padding: 0.1rem 0.22rem; font-size: 6pt;">Small</span><span class="mock-btn" style="padding: 0.1rem 0.22rem; font-size: 6pt;">Normal</span><span class="mock-btn" style="padding: 0.1rem 0.22rem; font-size: 6pt;">Large</span><span class="mock-btn" style="padding: 0.1rem 0.22rem; font-size: 6pt;">Title</span>
+            <span class="mock-btn" style="padding: 0.1rem 0.28rem; font-size: 6pt; font-weight: 800;">B</span><span class="mock-btn" style="padding: 0.1rem 0.28rem; font-size: 6pt; font-style: italic;">I</span>
+            <span class="mock-btn" style="padding: 0.1rem 0.22rem; font-size: 6pt;">※ Symbols</span>
+            <span style="color: #9aa0a8; font-size: 6.5pt;">Color</span>
+            <span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #e8e8ea;"></span><span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #3b82f6;"></span><span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #ef4444;"></span><span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #22c55e;"></span><span style="display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #f59e0b;"></span>
+          </div>
+          <div style="background: #fff; color: #1f2329; border-radius: 4px; padding: 0.4rem 0.5rem; line-height: 1.6;">
+            <div style="font-weight: 700;">① New product schedule</div>
+            <div>Start: 2nd week of Nov <span style="color: #2563eb;">→ confirmed</span></div>
+            <div style="color: #dc2626;">□ Mold revision date not set</div>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.45rem;">
+            <span style="color: #9aa0a8; font-size: 6.5pt;">Not saved yet · Being kept on this PC</span>
+            <span class="mock-btn-primary" style="font-size: 7.5pt;">💾 Save as Excel ❻</span>
+          </div>
+        </div>
+      </div>
+      <div class="legend">
+        <ol>
+          <li><strong>Live sharing</strong> — You see "○○ is editing …" while someone types. Several people can write at once; it all merges.</li>
+          <li><strong>Meeting info</strong> — Enter the purpose. Date and start time (Korean time) are automatic; the end time is set when you save. <strong>Location</strong> is automatic ("웹 미팅" = "web meeting") and editable, as is the author.</li>
+          <li><strong>Attendees</strong> — People who joined are <strong>filled in automatically</strong>; add department and title. Use <strong>＋ With</strong> for people sharing a PC, <strong>＋ Add guest</strong> for people who didn't join.</li>
+          <li><strong>Agenda</strong> — Click <strong>＋ Add item</strong> and enter the number (①②…), title and owner department. Press <span class="kbd">Enter</span> in the title to add the next item.</li>
+          <li><strong>Notes</strong> — Each agenda item gets its own white box (title automatic). <strong>One Enter = one Excel line.</strong></li>
+          <li><strong>Save as Excel</strong> — Explained on the next page.</li>
+        </ol>
+      </div>
+    </div>
+
+    <h3>Text Formatting and Symbols</h3>
+    <ul>
+      <li>Select text, then click <strong>size</strong> (Small · Normal · Large · Title), <strong>Bold</strong>, <strong>Italic</strong> or <strong>color</strong> (Default · Blue · Red · Green · Orange); they appear the same in Excel. Suggested: <strong style="color: #dc2626;">Red</strong> = problem / NG, <strong style="color: #2563eb;">Blue</strong> = improvement / decision.</li>
+      <li><span class="kbd">※ Symbols</span> opens a box of arrows, marks, numbers and units that don't break in Excel; click one to insert it at the cursor (<span class="kbd">Esc</span> closes).</li>
+      <li>Pasted text comes in as <strong>plain text</strong>; characters that break in Excel (such as ✓) are replaced.</li>
+    </ul>
+
+    <div class="page-footer">
+      PikMeeting · <span class="brand">Developed by Seo Jeong-Cheon</span> · Page 12
+    </div>
+  </section>
+
+  <section class="page">
+    <h1 class="section-title">12. Meeting Minutes (Saving · Leaving)</h1>
+
+    <h2>💾 Save as Excel</h2>
+    <ol class="steps">
+      <li>Click <span class="mock-btn-primary" style="font-size: 9pt;">💾 Save as Excel</span> at the bottom of the minutes. Save as often as you like; an existing file is never overwritten — a number like <span class="kbd">(2)</span> is added to the new file's name.</li>
+      <li>A "Saved as Excel" notice shows the <strong>file name and save location</strong>. <strong>Open file</strong> opens it, <strong>Open folder</strong> opens the folder, and <strong>Change folder</strong> sets the folder for later saves.</li>
+    </ol>
+
+    <table>
+      <tr><th style="width: 22%;">File name</th><td><span class="kbd" style="font-family: inherit;">회의록_date_time_purpose.xlsx</span> (회의록 = "minutes") — e.g. <span class="kbd" style="font-family: inherit;">회의록_20261030_1430_Weekly review.xlsx</span> (Korean time when saved; purpose cut at 20 characters)</td></tr>
+      <tr><th>Save location</th><td>By default the <span class="kbd" style="font-family: inherit;">Downloads\PikMeeting\회의록</span> folder on your PC.</td></tr>
+      <tr><th>Excel contents</th><td>Top: <strong>company logo · "회 의 록" · approval boxes (Prepared / Reviewed / Approved)</strong>, then the meeting info, attendees, agenda and notes; the footer has the document number and company name. (Labels are in Korean.)</td></tr>
+    </table>
+
+    <div class="tip">
+      Only the <strong>Prepared</strong> box gets your name automatically; the signature boxes are blank, so <strong>print it and sign by hand</strong>.
+      The ○ in an attendee's check column is not a signature — it records that they <strong>joined the meeting</strong>.
+    </div>
+
+    <h2>Confirmation When Leaving</h2>
+    <div class="mockup-wrap">
+      <div class="mockup" style="width: 300px;">
+        <div class="mockup-titlebar"><span class="mockup-titlebar-text">Leave</span></div>
+        <div class="mockup-body" style="text-align: center;">
+          <div style="font-weight: 700; color: #e8e8ea; margin-bottom: 0.4rem; font-size: 9pt;">💾 The minutes are not saved yet</div>
+          <div style="font-size: 7.5pt; color: #a0a4ad; line-height: 1.5;">You made changes after the last save. If you leave without saving as Excel, these minutes may be lost.</div>
+          <div style="margin-top: 0.6rem; display: flex; flex-direction: column; gap: 0.3rem;">
+            <div class="mock-btn-primary" style="font-size: 7.5pt;">Save as Excel and leave ❶</div>
+            <div class="mock-btn" style="font-size: 7.5pt; color: #ffb4b4;">Leave without saving ❷</div>
+            <div class="mock-btn-ghost" style="font-size: 7.5pt;">Cancel (back to the meeting) ❸</div>
+          </div>
+        </div>
+      </div>
+      <div class="legend">
+        <p style="font-size: 10pt;">When you click <strong>Leave (📞)</strong> and there are changes since the last save, this window appears.</p>
+        <ol>
+          <li>Saves and leaves. The lobby briefly shows "You left the meeting · The minutes were saved as Excel" with the file name, location and <strong>Open file · Open folder</strong>.</li>
+          <li>Leaves without saving.</li>
+          <li>Returns to the meeting.</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="warn">
+      <strong>If you don't save, the minutes may be lost after the meeting.</strong> They are not stored on a server, so for important meetings save as Excel midway and before the meeting ends.
+    </div>
+
+    <div class="page-footer">
+      PikMeeting · <span class="brand">Developed by Seo Jeong-Cheon</span> · Page 13
+    </div>
+  </section>
+
+  <section class="page">
+    <h1 class="section-title">12. Meeting Minutes (Restore)</h1>
+    <ul>
+      <li>While you write, the content is <strong>kept on your PC automatically</strong> (about every 5 seconds). If the internet drops, what you wrote stays here and is <strong>merged automatically</strong> once you reconnect ("Disconnected" shows at the top meanwhile).</li>
+      <li>If the app closed suddenly or you left by mistake, <strong>rejoin with the same meeting code</strong>. When "A previous minutes draft is kept on this PC… Restore it?" appears, click <strong>Restore previous minutes</strong> (or <strong>Start fresh</strong>).</li>
+      <li>The kept copy is deleted after about 12 hours and does not replace saving as Excel.</li>
+      <li>Deleted an attendee or agenda item by mistake? Click <strong>"Undo" within 10 seconds</strong>.</li>
+    </ul>
+
+    <div class="note">
+      The minutes work between participants on v1.13.0 or later; others don't have the 📝 button.
+    </div>
+
+    <!-- ============ 13. COMPANY FORM SETTINGS (ADMIN) ============ -->
+    <h1 class="section-title" style="margin-top: 1.6rem;">13. Company Form Settings (Admins)</h1>
+    <p>An admin sets the <strong>company logo · name · document number</strong> for the minutes Excel once, and every PC picks them up. Admin-only.</p>
+
+    <ol class="steps">
+      <li>After logging in as admin, click <strong>🏢 Company form</strong> in the admin menu at the top right of the lobby.</li>
+      <li>Fill in the items below in the "Company form settings" window and click <span class="mock-btn" style="font-size: 9pt;">Save</span>. "Saved. Other PCs pick it up within a few minutes." appears.</li>
+    </ol>
+
+    <table>
+      <tr><th style="width: 22%;">Company name</th><td>Goes in the <strong>center of the Excel footer</strong>. (e.g. ○○ Co., Ltd.)</td></tr>
+      <tr><th>Document no.</th><td>Goes in the <strong>left of the Excel footer</strong>. (e.g. ○○-○○○)</td></tr>
+      <tr><th>Company logo</th><td>Goes in the <strong>logo box at the top</strong>. <strong>Choose image…</strong> takes a PNG or JPG and shrinks it automatically to at most 600px wide. <strong>Remove logo</strong> takes it out.</td></tr>
+    </table>
+
+    <div class="note">
+      Minutes can be saved without a logo (the box stays blank). Excel files already saved don't change; files saved afterwards get the new values.
+    </div>
+
+    <div class="page-footer">
+      PikMeeting · <span class="brand">Developed by Seo Jeong-Cheon</span> · Page 14
+    </div>
+  </section>
+
+  <!-- ============ 14. AUTO UPDATE ============ -->
+  <section class="page">
+    <h1 class="section-title">14. Auto-update</h1>
     <p>When a new version is released, the app downloads and applies it automatically. No action is required from you.</p>
 
     <h2>Update Progress Screens</h2>
@@ -877,13 +1190,13 @@
     <p><strong>Click</strong> this badge to view the full change history.</p>
 
     <div class="page-footer">
-      PikMeeting · <span class="brand">Developed by Seo Jeong-Cheon</span> · Page 10
+      PikMeeting · <span class="brand">Developed by Seo Jeong-Cheon</span> · Page 15
     </div>
   </section>
 
-  <!-- ============ 11. TROUBLESHOOTING ============ -->
+  <!-- ============ 15. TROUBLESHOOTING ============ -->
   <section class="page">
-    <h1 class="section-title">11. Troubleshooting</h1>
+    <h1 class="section-title">15. Troubleshooting</h1>
 
     <h3>"Microphone not found" message appears</h3>
     <p>The most common cause is that <strong>Windows microphone permission is blocked</strong>.</p>
@@ -927,19 +1240,22 @@
     </ul>
 
     <div class="page-footer">
-      PikMeeting · <span class="brand">Developed by Seo Jeong-Cheon</span> · Page 11
+      PikMeeting · <span class="brand">Developed by Seo Jeong-Cheon</span> · Page 16
     </div>
   </section>
 
-  <!-- ============ 12. FAQ ============ -->
+  <!-- ============ 16. FAQ ============ -->
   <section class="page">
-    <h1 class="section-title">12. FAQ</h1>
+    <h1 class="section-title">16. FAQ</h1>
 
     <p class="faq-q">How many people can be in a meeting at once?</p>
     <p class="faq-a">Technically, up to about 6-8 people works without issues. Since it's P2P, the more participants there are, the more network bandwidth each person needs.</p>
 
     <p class="faq-q">Is the meeting recorded or stored on a server?</p>
-    <p class="faq-a">No. All communication travels P2P, directly between participants' PCs. The signaling server merely helps set up the connection and never receives the audio, video, or chat content. The same applies to file transfers.</p>
+    <p class="faq-a">Nothing is recorded automatically or stored on a server. Voice, screen, chat and files travel P2P, directly between participants' PCs, and the signaling server merely helps set up the connection without receiving their content. A recording file is saved only on the PC of the person who clicks ⏺️ Record. The minutes are exchanged between attendees in real time and are not stored on the server; only the Excel file you save remains.</p>
+
+    <p class="faq-q">Where are recording files and minutes Excel files saved?</p>
+    <p class="faq-a">By default in the <strong>Downloads\PikMeeting</strong> folder on your PC, and minutes Excel files go in the <strong>회의록</strong> folder inside it. Click <strong>Open folder</strong> in the notice that appears after saving to open it right away.</p>
 
     <p class="faq-q">Can it be used outside the company?</p>
     <p class="faq-a">Yes, it can be used anywhere with an internet connection. You just need to know the meeting code.</p>
@@ -977,7 +1293,7 @@
     </div>
 
     <div class="page-footer">
-      PikMeeting · <span class="brand">Developed by Seo Jeong-Cheon</span> · Page 12
+      PikMeeting · <span class="brand">Developed by Seo Jeong-Cheon</span> · Page 17
     </div>
   </section>
 
