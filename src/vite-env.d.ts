@@ -59,6 +59,13 @@ declare global {
         { ok: true; filePath: string } | { ok: false; message: string }
       >;
       openRecordingFolder: (filePath: string) => Promise<void>;
+      // 회의록 엑셀 저장 (electron/preload.ts · 계약 C). 폴더 고르기·폴더 열기는 위의 recording 함수를 같이 쓴다.
+      getDefaultMinutesFolder: () => Promise<string>;
+      saveMinutes: (req: {
+        dir: string;
+        doc: import('./lib/minutes/types').MinutesExport;
+      }) => Promise<import('./lib/minutes/types').MinutesSaveResult>;
+      openMinutesFile: (filePath: string) => Promise<void>;
       platform: string;
     };
   }

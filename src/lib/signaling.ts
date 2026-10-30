@@ -1,3 +1,5 @@
+import type { MinutesWire } from './minutes/types';
+
 // Screen-annotation payload shapes. MUST match the server's validation exactly
 // (signaling/src/worker.ts) — messages that don't match are silently dropped.
 export type AnnotationBody =
@@ -9,7 +11,10 @@ export type AnnotationBody =
   | { kind: 'permission'; allowed: boolean };
 
 export type SignalingMessage =
-  | { type: 'hello'; peerId: string; displayName: string }
+  // sessionKey: a random secret this client makes once per peerId (kept across its own reconnects). The server
+  // lets a new connection take over an existing peerId only if the key matches, so a peerId alone (which
+  // every peer is told) cannot be used to kick someone out and speak as them. See signaling/src/worker.ts.
+  | { type: 'hello'; peerId: string; displayName: string; sessionKey?: string }
   | { type: 'bye' }
   | { type: 'ping' }
   | { type: 'pong' }
@@ -27,11 +32,28 @@ export type SignalingMessage =
   // Broadcasts "I started/stopped recording" so every participant is shown a
   // notice. `from` must equal the sender's own peerId and `active` a boolean,
   // or the server silently drops the message (see signaling/src/worker.ts).
-  | { type: 'recording'; from: string; active: boolean };
+  | { type: 'recording'; from: string; active: boolean }
+  // Meeting-minutes (Yjs) sync. The server only relays it (never stores or logs it);
+  // `from` must equal the sender's own peerId. See src/lib/minutes/provider.ts.
+  | MinutesWire;
 
 const SIGNALING_URL =
   (import.meta as any).env?.VITE_SIGNALING_URL ??
   'wss://meet-sig.jcseo.workers.dev';
+
+/** 16+ chars of [A-Za-z0-9_-] (the server checks that shape). */
+function makeSessionKey(): string {
+  try {
+    const c = (globalThis as { crypto?: Crypto }).crypto;
+    if (c && typeof c.randomUUID === 'function') return c.randomUUID();
+    if (c && typeof c.getRandomValues === 'function') {
+      return Array.from(c.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, '0')).join('');
+    }
+  } catch {
+    // fall through
+  }
+  return Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
 
 const KEEPALIVE_INTERVAL_MS = 25000; // ping to keep idle WS alive through NAT/proxy
 const MAX_RECONNECT_DELAY_MS = 10000;
@@ -52,13 +74,20 @@ export class SignalingClient {
   private roomCode = '';
   private peerId = '';
   private displayName = '';
+  private sessionKey = '';
   private intentionalClose = false;
   private reconnectAttempts = 0;
   private keepaliveTimer: ReturnType<typeof setInterval> | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   // Called after a successful RE-connect (not the first connect) so the mesh
   // can re-establish media paths (ICE restart) through the restored signaling.
-  private reconnectHandler: (() => void) | null = null;
+  // A set, not a single slot: the meeting-minutes sync wants to hear about it too.
+  private reconnectHandlers = new Set<() => void>();
+  // Passive listeners: see every message of a type IN ADDITION to the one handler
+  // registered with on(). They never take part in the pending queue.
+  private listeners = new Map<string, Set<(msg: any) => void>>();
+  // Told when the socket becomes usable (true) or unusable (false).
+  private openListeners = new Set<(open: boolean) => void>();
 
   private unloadHandler = () => {
     this.sendBye();
@@ -68,6 +97,8 @@ export class SignalingClient {
 
   connect(roomCode: string, peerId: string, displayName: string): Promise<void> {
     this.roomCode = roomCode;
+    // A new key for a new peerId; the same key for every reconnect of this peerId.
+    if (peerId !== this.peerId || !this.sessionKey) this.sessionKey = makeSessionKey();
     this.peerId = peerId;
     this.displayName = displayName;
     this.intentionalClose = false;
@@ -75,9 +106,55 @@ export class SignalingClient {
     return this.openSocket(false);
   }
 
-  /** Register a callback invoked after the WebSocket transparently reconnects. */
-  onReconnect(cb: () => void) {
-    this.reconnectHandler = cb;
+  /**
+   * Register a callback invoked after the WebSocket transparently reconnects.
+   * Several can be registered; the returned function removes this one.
+   */
+  onReconnect(cb: () => void): () => void {
+    this.reconnectHandlers.add(cb);
+    return () => {
+      this.reconnectHandlers.delete(cb);
+    };
+  }
+
+  /** True while the WebSocket is open. */
+  isOpen(): boolean {
+    return this.ws?.readyState === WebSocket.OPEN;
+  }
+
+  /** Be told when the socket opens (true) or closes (false). The returned function unsubscribes. */
+  onOpenChange(cb: (open: boolean) => void): () => void {
+    this.openListeners.add(cb);
+    return () => {
+      this.openListeners.delete(cb);
+    };
+  }
+
+  /**
+   * Passively listen to every message of `type`. Unlike on(), this does not replace
+   * the single handler another module registered, and nothing is queued for it.
+   * The returned function unsubscribes.
+   */
+  listen<T extends SignalingMessage['type']>(type: T, handler: Handler<T>): () => void {
+    let set = this.listeners.get(type);
+    if (!set) {
+      set = new Set();
+      this.listeners.set(type, set);
+    }
+    set.add(handler as (msg: any) => void);
+    return () => {
+      this.listeners.get(type)?.delete(handler as (msg: any) => void);
+    };
+  }
+
+  private notifyOpen(open: boolean) {
+    for (const cb of Array.from(this.openListeners)) {
+      try {
+        cb(open);
+      } catch (err) {
+        console.error('[signaling] open listener error', err);
+      }
+    }
   }
 
   private openSocket(isReconnect: boolean): Promise<void> {
@@ -98,18 +175,21 @@ export class SignalingClient {
       ws.onopen = () => {
         clearTimeout(timer);
         this.reconnectAttempts = 0;
-        this.send({ type: 'hello', peerId: this.peerId, displayName: this.displayName });
+        this.send({ type: 'hello', peerId: this.peerId, displayName: this.displayName, sessionKey: this.sessionKey });
         window.addEventListener('beforeunload', this.unloadHandler);
         window.addEventListener('pagehide', this.unloadHandler);
         this.startKeepalive();
         if (isReconnect) {
           console.log('[signaling] reconnected, re-hello sent');
-          try {
-            this.reconnectHandler?.();
-          } catch (err) {
-            console.error('[signaling] reconnect handler error', err);
+          for (const handler of Array.from(this.reconnectHandlers)) {
+            try {
+              handler();
+            } catch (err) {
+              console.error('[signaling] reconnect handler error', err);
+            }
           }
         }
+        this.notifyOpen(true);
         resolve();
       };
 
@@ -127,6 +207,7 @@ export class SignalingClient {
         // retire the current one, and chain into a reconnect storm.
         if (ws !== this.ws) return;
         this.stopKeepalive();
+        this.notifyOpen(false);
         if (!this.intentionalClose) {
           console.warn('[signaling] websocket closed unexpectedly → reconnecting');
           this.scheduleReconnect();
@@ -146,6 +227,16 @@ export class SignalingClient {
         if (msg.type === 'pong' || msg.type === 'ping') {
           // keepalive — nothing to do
           return;
+        }
+        const watchers = this.listeners.get(msg.type);
+        if (watchers && watchers.size > 0) {
+          for (const watcher of Array.from(watchers)) {
+            try {
+              watcher(msg);
+            } catch (err) {
+              console.error('[signaling] listener error', msg.type, err);
+            }
+          }
         }
         const handler = this.handlers.get(msg.type);
         if (handler) {
@@ -212,6 +303,11 @@ export class SignalingClient {
     }
   }
 
+  /** Stop the single handler registered with on() for `type` (listen() subscribers are unaffected). */
+  off(type: SignalingMessage['type']) {
+    this.handlers.delete(type);
+  }
+
   send(msg: SignalingMessage) {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));
@@ -241,6 +337,9 @@ export class SignalingClient {
     this.ws?.close();
     this.ws = null;
     this.handlers.clear();
+    this.listeners.clear();
+    this.openListeners.clear();
+    this.reconnectHandlers.clear();
     this.pending = [];
   }
 }

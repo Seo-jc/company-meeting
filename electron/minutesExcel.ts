@@ -228,10 +228,18 @@ const circled = (no: number, idx: number): string => {
   return n <= CIRC.length ? CIRC[n - 1] : String(n);
 };
 
-function runsToChars(runs: unknown): Ch[] {
+// 한도(방어용) — 렌더러의 src/lib/minutes/export.ts 가 «같은 값» 으로 먼저 잘라 알리므로 평소엔 여기서 걸리지 않는다.
+// 렌더러가 보낸 값을 믿지 않는다: 엄청나게 큰 자료가 와도 이 프로세스가 오래 멈추지 않게.
+const MAX_AGENDA = 50;
+const MAX_ATTENDEES = 200;
+const MAX_CHARS_PER_AGENDA = 50_000;
+const MAX_CHARS_TOTAL = 200_000;
+
+function runsToChars(runs: unknown, budget: { left: number }): Ch[] {
   const out: Ch[] = [];
   if (!Array.isArray(runs)) return out;
   for (const r of runs) {
+    if (budget.left <= 0) break;
     if (!r || typeof r !== 'object') continue;
     const run = r as { text?: unknown; bold?: unknown; italic?: unknown; color?: unknown; size?: unknown };
     const text = normText(run.text);
@@ -243,7 +251,11 @@ function runsToChars(runs: unknown): Ch[] {
       i: run.italic === true,
       color: COLOR_HEX[String(run.color ?? 'default')] ?? BLACK,
     };
-    for (const c of Array.from(text)) out.push({ c, s });
+    for (const c of text) {
+      if (budget.left <= 0) break;
+      out.push({ c, s });
+      budget.left -= 1;
+    }
   }
   return out;
 }
@@ -297,6 +309,7 @@ function normalize(raw: MinutesExport): NDoc {
     if (info) logo = { buf, ...info };
   }
   const attendees = (Array.isArray(d.attendees) ? d.attendees : [])
+    .slice(0, MAX_ATTENDEES)
     .map((a) => ({
       dept: oneLine(a?.dept, 60),
       rank: oneLine(a?.rank, 30),
@@ -305,8 +318,17 @@ function normalize(raw: MinutesExport): NDoc {
       confirmed: a?.confirmed === true,
     }))
     .filter((a) => a.dept || a.rank || a.name); // 아무것도 안 적은 줄(눌러 놓고 안 채운 «동석자 추가»)은 명단에 넣지 않는다
-  const agenda: NAgenda[] = (Array.isArray(d.agenda) ? d.agenda : []).map((a, idx) => {
-    const paras = (Array.isArray(a?.paras) ? a.paras : []).map((p) => runsToChars(p?.runs));
+  const total = { left: MAX_CHARS_TOTAL };
+  const agenda: NAgenda[] = (Array.isArray(d.agenda) ? d.agenda : []).slice(0, MAX_AGENDA).map((a, idx) => {
+    const budget = { left: Math.min(MAX_CHARS_PER_AGENDA, total.left) };
+    const start = budget.left;
+    const paras: Ch[][] = [];
+    for (const p of Array.isArray(a?.paras) ? a.paras : []) {
+      if (budget.left <= 0) break;
+      paras.push(runsToChars(p?.runs, budget));
+      budget.left -= 1; // 문단 나눔
+    }
+    total.left -= Math.min(start, start - budget.left);
     // 앞·뒤의 빈 문단은 뺀다(편집기는 안건마다 빈 문단 하나로 시작하므로, 안 빼면 제목 밑에 빈 줄이 남는다). 가운데의 빈 문단은 사용자가 둔 띄움이라 남긴다.
     const blank = (c: Ch[]): boolean => c.every((x) => x.c.trim() === '');
     while (paras.length && blank(paras[0])) paras.shift();

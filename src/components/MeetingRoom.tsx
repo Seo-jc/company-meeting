@@ -13,12 +13,19 @@ import { getStoredMicId, getStoredSpeakerId } from './AudioDevices';
 import SourcePicker from './SourcePicker';
 import ChatPanel from './ChatPanel';
 import ChatTab from './ChatTab';
+import MinutesPanel from './MinutesPanel';
+import MinutesToast from './MinutesToast';
+import MinutesLeaveDialog from './MinutesLeaveDialog';
 import Logo from './Logo';
 import AudioSettingsPopover from './AudioSettingsPopover';
 import AnnotationCanvas from './AnnotationCanvas';
 import { useSpeakingDetection } from '../lib/speakingDetection';
 import { getIceServers } from '../lib/turnCredentials';
 import { useLang, useT } from '../i18n';
+import { MinutesSession } from '../lib/minutes/session';
+import { useMinutesState } from '../lib/minutes/useMinutes';
+import { refreshCompany } from '../lib/minutes/company';
+import type { MinutesLeftInfo } from '../lib/minutes/types';
 import {
   AnnotationCompositor,
   AudioMixer,
@@ -84,6 +91,9 @@ const STR = {
     chatClose: '채팅 닫기',
     chatOpen: '채팅 열기',
     chat: '채팅',
+    minutes: '회의록',
+    minutesOpen: '회의록 열기',
+    minutesClose: '회의록 닫기',
     leave: '나가기',
     currentTimeTip: '현재 시간 · 회의 진행 시간',
     selfSuffix: '(나)',
@@ -168,6 +178,9 @@ const STR = {
     chatClose: 'Close chat',
     chatOpen: 'Open chat',
     chat: 'Chat',
+    minutes: 'Minutes',
+    minutesOpen: 'Open meeting minutes',
+    minutesClose: 'Close meeting minutes',
     leave: 'Leave',
     currentTimeTip: 'Current time · Meeting duration',
     selfSuffix: '(You)',
@@ -209,7 +222,8 @@ type Props = {
   roomCode: string;
   displayName: string;
   meetingTitle?: string;
-  onLeave: () => void;
+  /** 나갈 때 부른다. 회의록을 엑셀로 저장했으면 그 안내를 넘겨 로비에서 보여 주게 한다(방이 사라지면 방 안의 알림도 사라지므로). */
+  onLeave: (minutesSaved?: MinutesLeftInfo | null) => void;
 };
 
 type Status = 'connecting' | 'connected' | 'error';
@@ -281,6 +295,10 @@ export default function MeetingRoom({
 
   // Right (chat) panel state
   const [chatOpen, setChatOpen] = useState(false);
+  // Meeting minutes panel (never open together with chat) + leave confirmation
+  const [minutesOpen, setMinutesOpen] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [leaveSaving, setLeaveSaving] = useState(false);
   const [showAudioPopover, setShowAudioPopover] = useState(false);
 
   // Chat
@@ -289,6 +307,18 @@ export default function MeetingRoom({
 
   const [myId, setMyId] = useState<string>('');
   const [meetingStartTs] = useState(Date.now());
+
+  // Meeting minutes: one session per room. Its document survives mic retries / listen-only switches
+  // (the signaling client is re-created then; attach()/detach() below follow it).
+  const [minutes] = useState(
+    () => new MinutesSession({ roomCode, myName: displayName, startedAt: meetingStartTs })
+  );
+  const minutesState = useMinutesState(minutes);
+  useEffect(() => {
+    minutes.activate();
+    void refreshCompany(); // company logo / name / doc no. → cached on this PC for saving
+    return () => minutes.deactivate();
+  }, [minutes]);
 
   // Screen annotation: one shared store for the whole meeting (see src/lib/annotations.ts).
   // Stable for the component's lifetime — never recreated on re-render.
@@ -408,6 +438,8 @@ export default function MeetingRoom({
         signalingRef.current = signaling;
         const generatedId = crypto.randomUUID();
         setMyId(generatedId);
+        // Minutes sync listens on the same signaling client; attach BEFORE connect so nothing is missed.
+        minutes.attach(signaling, generatedId);
 
         const mesh = new MeshConnection(
           localStream,
@@ -536,11 +568,12 @@ export default function MeetingRoom({
 
     return () => {
       cancelled = true;
+      minutes.detach();
       meshRef.current?.close();
       signalingRef.current?.close();
       localStreamRef.current?.getTracks().forEach((t) => t.stop());
     };
-  }, [roomCode, displayName, retryNonce, listenOnly, hub]);
+  }, [roomCode, displayName, retryNonce, listenOnly, hub, minutes]);
 
   // Speaking detection runs against whatever streams are currently available.
   // MUST be called before any conditional early returns to keep React hook order stable.
@@ -1033,7 +1066,7 @@ export default function MeetingRoom({
                 {t.joinListenOnly}
               </button>
             )}
-            <button className="btn" onClick={onLeave}>
+            <button className="btn" onClick={() => onLeave()}>
               {t.backToLobby}
             </button>
           </div>
@@ -1382,13 +1415,47 @@ export default function MeetingRoom({
     setRecordConfirmError(null);
   };
 
-  const handleLeaveClick = async () => {
+  const finishLeave = async () => {
     if (leavingRef.current) return;
     leavingRef.current = true;
     if (recorderRef.current) {
       await handleStopRecording();
     }
-    onLeave();
+    onLeave(minutes.getLeaveInfo());
+  };
+
+  const handleLeaveClick = async () => {
+    if (leavingRef.current) return;
+    // Minutes edited since the last Excel save and not empty → ask first.
+    if (minutes.needsLeaveConfirm()) {
+      setShowLeaveConfirm(true);
+      return;
+    }
+    await finishLeave();
+  };
+
+  const handleLeaveSaveFirst = async () => {
+    setLeaveSaving(true);
+    const ok = await minutes.save();
+    setLeaveSaving(false);
+    setShowLeaveConfirm(false);
+    // On failure stay in the meeting: the toast explains why and offers another folder.
+    if (ok) await finishLeave();
+  };
+
+  const handleLeaveWithoutSave = async () => {
+    setShowLeaveConfirm(false);
+    await finishLeave();
+  };
+
+  // Chat and minutes share the right-hand side: opening one closes the other.
+  const toggleChat = () => {
+    if (!chatOpen) setMinutesOpen(false);
+    setChatOpen(!chatOpen);
+  };
+  const toggleMinutes = () => {
+    if (!minutesOpen) setChatOpen(false);
+    setMinutesOpen(!minutesOpen);
   };
 
   const recordingPeerNames = peers
@@ -1405,7 +1472,7 @@ export default function MeetingRoom({
   })();
 
   return (
-    <div className={`meeting ${chatOpen ? 'chat-open' : ''}`}>
+    <div className={`meeting ${chatOpen ? 'chat-open' : ''} ${minutesOpen ? 'minutes-open' : ''}`}>
       {recording && recordingStartTs !== null && (
         <RecordingBadge startTs={recordingStartTs} sourceLabel={recordingSourceLabel} />
       )}
@@ -1612,7 +1679,7 @@ export default function MeetingRoom({
         <div className="control-item">
           <button
             className={`btn-circle ${chatOpen ? 'btn-active' : ''}`}
-            onClick={() => setChatOpen((v) => !v)}
+            onClick={toggleChat}
             title={chatOpen ? t.chatClose : t.chatOpen}
           >
             💬
@@ -1623,6 +1690,20 @@ export default function MeetingRoom({
             )}
           </button>
           <span className="control-label">{t.chat}</span>
+        </div>
+        <div className="control-item">
+          <button
+            className={`btn-circle ${minutesOpen ? 'btn-active' : ''}`}
+            onClick={toggleMinutes}
+            title={minutesOpen ? t.minutesClose : t.minutesOpen}
+            aria-label={minutesOpen ? t.minutesClose : t.minutesOpen}
+          >
+            📝
+            {!minutesOpen && (minutesState.unseenRemote || minutesState.restoreOffer || minutesState.link.oversize) && (
+              <span className="mm-dot-new" aria-hidden="true" />
+            )}
+          </button>
+          <span className="control-label">{t.minutes}</span>
         </div>
         <div className="control-item">
           <button className="btn-circle btn-leave" onClick={handleLeaveClick} title={t.leave}>
@@ -1641,6 +1722,17 @@ export default function MeetingRoom({
             onSendFile={handleSendFile}
           />
         </ChatPanel>
+      )}
+
+      {minutesOpen && <MinutesPanel session={minutes} onClose={() => setMinutesOpen(false)} />}
+      <MinutesToast session={minutes} panelOpen={minutesOpen} />
+      {showLeaveConfirm && (
+        <MinutesLeaveDialog
+          busy={leaveSaving}
+          onSaveAndLeave={() => void handleLeaveSaveFirst()}
+          onLeaveWithoutSave={() => void handleLeaveWithoutSave()}
+          onCancel={() => setShowLeaveConfirm(false)}
+        />
       )}
 
       {showPicker && (

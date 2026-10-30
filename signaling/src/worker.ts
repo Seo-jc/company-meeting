@@ -82,6 +82,15 @@ function isValidAnnotation(msg: any): boolean {
  */
 const MINUTES_KINDS = ['sync1', 'sync2', 'update'];
 const MINUTES_MAX_PER_SEC = 30;
+// Per-connection byte budget (sum of `data` lengths) per second. The message count alone does not
+// bound the traffic: 30 x 200,000 chars is ~6 MB/s from one sender, every byte of it fanned out to
+// the whole room. One full-document sync2 (<= ~1 MB) still fits, three per second at most.
+const MINUTES_MAX_BYTES_PER_SEC = 3_000_000;
+// NOTE: the real ceiling is lower than this constant. workerd closes a WebSocket (1009) when one
+// message exceeds 1 MiB (1,048,576 bytes) BEFORE this code runs, so a sync2 above ~1,048,000
+// chars never gets here — the sender is disconnected instead. (Measured on local workerd 3.114;
+// production limit not confirmed.) The client (src/lib/minutes/provider.ts) therefore stops at
+// 1,000,000 chars per JSON message and never sends more.
 const MINUTES_MAX_DATA_SYNC2 = 1_500_000;
 const MINUTES_MAX_DATA_OTHER = 200_000;
 const BASE64_BODY = /^[A-Za-z0-9+/]+={0,2}$/;
@@ -101,6 +110,73 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 };
+
+// ---------- hello (joining a room) ----------
+// peerId is made by the client (crypto.randomUUID). It is not a secret — every other peer is told it —
+// so on its own it proves nothing. The client therefore also sends a random `sessionKey` that only it
+// knows; a second connection claiming the same peerId replaces the first only if the key matches.
+// (The app makes UUIDs, but only the size and "no control characters" are enforced so no client version is locked out.)
+// eslint-disable-next-line no-control-regex
+const PEER_ID_RE = /^[^\u0000-\u001f\u007f]{1,64}$/;
+const SESSION_KEY_RE = /^[A-Za-z0-9_-]{16,64}$/;
+const DISPLAY_NAME_MAX = 100;
+/** How long a departed peer's key is remembered, so its peerId cannot be taken over the moment it drops. */
+const RECENT_KEY_TTL_MS = 2 * 60 * 1000;
+
+// ---------- admin password gate (shared by every endpoint that takes ADMIN_PASSWORD) ----------
+
+/**
+ * The address the failed-attempt counter is keyed on. IPv4 as is; IPv6 reduced to its /64 so that
+ * rotating the host part of an address (a /64 is one subscriber's) does not reset the counter.
+ */
+function clientKeyOf(request: Request): string {
+  const ip = (request.headers.get('CF-Connecting-IP') ?? '').trim().toLowerCase();
+  if (!ip) return 'unknown';
+  if (!ip.includes(':')) return ip;
+  const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(ip);
+  if (mapped) return mapped[1];
+  const bare = ip.split('%')[0];
+  const dbl = bare.indexOf('::');
+  const head = (dbl < 0 ? bare : bare.slice(0, dbl)).split(':').filter((g) => g !== '');
+  const tail = dbl < 0 ? [] : bare.slice(dbl + 2).split(':').filter((g) => g !== '');
+  const groups = dbl < 0 ? head : [...head, ...Array(Math.max(0, 8 - head.length - tail.length)).fill('0'), ...tail];
+  return 'v6:' + groups.slice(0, 4).map((g) => g.padStart(4, '0')).join(':');
+}
+
+/**
+ * Checks the admin password through SettingsDO, which keeps the failed-attempt counter (a Worker isolate's
+ * memory is neither shared nor durable). Returns null when the password is right, else the Response to send.
+ * `unconfigured`: what to answer when ADMIN_PASSWORD is not set — 'say' = 503 (as /api/auth always did),
+ * 'hide' = the same 401 as a wrong password (as the other endpoints always did).
+ */
+async function requireAdmin(
+  request: Request,
+  env: Env,
+  password: unknown,
+  unconfigured: 'say' | 'hide'
+): Promise<Response | null> {
+  const obj = env.SETTINGS.get(env.SETTINGS.idFromName('global'));
+  const resp = await obj.fetch(
+    new Request('https://internal/verify', {
+      method: 'POST',
+      body: JSON.stringify({ password: typeof password === 'string' ? password : '' }),
+      // Set here, never taken from the caller: it keys the failed-attempt limit.
+      headers: { 'X-Client-Ip': clientKeyOf(request) },
+    })
+  );
+  if (resp.ok) return null;
+  const json = { 'Content-Type': 'application/json', ...CORS_HEADERS };
+  if (resp.status === 429) {
+    const headers: Record<string, string> = { ...json };
+    const retryAfter = resp.headers.get('Retry-After');
+    if (retryAfter) headers['Retry-After'] = retryAfter;
+    return new Response(await resp.text(), { status: 429, headers });
+  }
+  if (resp.status === 503 && unconfigured === 'say') {
+    return new Response(JSON.stringify({ error: 'admin not configured' }), { status: 503, headers: json });
+  }
+  return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401, headers: json });
+}
 
 const SUMMARY_PROMPT = `너는 한국어 회의록 요약 보조자다. 주어진 한국어 회의 발화록을 읽고 핵심 안건과 Action Item을 추출한다.
 
@@ -330,13 +406,8 @@ export default {
       } catch {
         // ignore
       }
-      const admin = (env.ADMIN_PASSWORD ?? '').trim();
-      if (!admin || payload.password !== admin) {
-        return new Response(JSON.stringify({ error: 'unauthorized' }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
-        });
-      }
+      const denied = await requireAdmin(request, env, payload.password, 'hide');
+      if (denied) return denied;
       const id = env.BUG_REPORTS.idFromName('global');
       const obj = env.BUG_REPORTS.get(id);
       const qs = new URLSearchParams({
@@ -358,13 +429,8 @@ export default {
       } catch {
         // ignore
       }
-      const admin = (env.ADMIN_PASSWORD ?? '').trim();
-      if (!admin || payload.password !== admin) {
-        return new Response(JSON.stringify({ error: 'unauthorized' }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
-        });
-      }
+      const denied = await requireAdmin(request, env, payload.password, 'hide');
+      if (denied) return denied;
       const reportId = url.pathname.split('/')[3];
       const id = env.BUG_REPORTS.idFromName('global');
       const obj = env.BUG_REPORTS.get(id);
@@ -386,19 +452,8 @@ export default {
       } catch {
         // ignore
       }
-      const admin = (env.ADMIN_PASSWORD ?? '').trim();
-      if (!admin) {
-        return new Response(JSON.stringify({ error: 'admin not configured' }), {
-          status: 503,
-          headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
-        });
-      }
-      if (payload.password !== admin) {
-        return new Response(JSON.stringify({ error: 'unauthorized' }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
-        });
-      }
+      const denied = await requireAdmin(request, env, payload.password, 'say');
+      if (denied) return denied;
       return new Response(JSON.stringify({ ok: true }), {
         headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
       });
@@ -413,13 +468,8 @@ export default {
       } catch {
         // ignore
       }
-      const admin = (env.ADMIN_PASSWORD ?? '').trim();
-      if (!admin || payload.password !== admin) {
-        return new Response(JSON.stringify({ error: 'unauthorized' }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
-        });
-      }
+      const denied = await requireAdmin(request, env, payload.password, 'hide');
+      if (denied) return denied;
       // 1) Ask PresenceDO which rooms currently have participants (codes only).
       const presId = env.PRESENCE.idFromName('global');
       const pres = env.PRESENCE.get(presId);
@@ -465,13 +515,8 @@ export default {
       } catch {
         // ignore
       }
-      const admin = (env.ADMIN_PASSWORD ?? '').trim();
-      if (!admin || payload.password !== admin) {
-        return new Response(JSON.stringify({ error: 'unauthorized' }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
-        });
-      }
+      const denied = await requireAdmin(request, env, payload.password, 'hide');
+      if (denied) return denied;
       const presId = env.PRESENCE.idFromName('global');
       const pres = env.PRESENCE.get(presId);
       const resp = await pres.fetch(new Request('https://internal/stats'));
@@ -511,7 +556,7 @@ export default {
           method: 'POST',
           body: text,
           // Set here, never taken from the caller: it keys the failed-attempt limit.
-          headers: { 'X-Client-Ip': request.headers.get('CF-Connecting-IP') ?? 'unknown' },
+          headers: { 'X-Client-Ip': clientKeyOf(request) },
         })
       );
       const headers: Record<string, string> = {
@@ -553,6 +598,8 @@ type Attachment =
       displayName: string;
       geo?: Geo;
       connectedAt?: number;
+      /** The client's secret for this peerId (see PEER_ID_RE). Never sent to anyone. Absent for older clients. */
+      sessionKey?: string;
     }
   | null;
 
@@ -560,12 +607,16 @@ export class Room {
   private state: DurableObjectState;
   private env: Env;
   private roomCode = '';
+  // peerId -> session key of a peer that just left, so the id cannot be taken over while the real owner reconnects.
+  // Memory only: a room that went to sleep simply forgets, which only loosens this extra guard.
+  private recentKeys = new Map<string, { key: string; until: number }>();
   // Temporary geo holding for connections that haven't sent 'hello' yet.
   private pendingGeo: Geo | null = null;
   // Annotation flood protection, per connection. Cleared when the socket closes.
   private annotationRate = new Map<WebSocket, { count: number; windowStart: number }>();
   // Same idea for meeting-minutes sync messages.
   private minutesRate = new Map<WebSocket, { count: number; windowStart: number }>();
+  private minutesBytes = new Map<WebSocket, { bytes: number; windowStart: number }>();
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -743,7 +794,39 @@ export class Room {
     }
 
     if (msg.type === 'hello') {
+      // Shape check: ids and names come from the client, and are echoed to every peer.
+      if (typeof msg.peerId !== 'string' || !PEER_ID_RE.test(msg.peerId)) return;
+      msg.displayName = typeof msg.displayName === 'string' ? msg.displayName.slice(0, DISPLAY_NAME_MAX) : '';
+      const sessionKey: string | undefined =
+        typeof msg.sessionKey === 'string' && SESSION_KEY_RE.test(msg.sessionKey) ? msg.sessionKey : undefined;
       console.log('[Room] hello from', msg.peerId, msg.displayName);
+
+      // Whose peerId is this? Another connection may take it over only with the same session key, otherwise
+      // anyone who has seen the peers list could kick a participant out and then speak as them
+      // (the `from` checks below only compare against this id).
+      const now0 = Date.now();
+      const recent = this.recentKeys.get(msg.peerId);
+      let taken = !!recent && recent.until > now0 && recent.key !== sessionKey;
+      if (!taken) {
+        for (const other of this.state.getWebSockets()) {
+          if (other === ws) continue;
+          const prev = this.getAttachment(other);
+          if (prev && prev.peerId === msg.peerId && prev.sessionKey && prev.sessionKey !== sessionKey) {
+            taken = true;
+            break;
+          }
+        }
+      }
+      if (taken) {
+        console.warn('[Room] hello refused: peer id already in use by another session', msg.peerId);
+        try {
+          ws.close(1008, 'peer id in use');
+        } catch {
+          // already gone
+        }
+        return;
+      }
+      this.recentKeys.delete(msg.peerId);
 
       // Retire any earlier session of this same peer. A dropped network leaves
       // the old socket half-open here until a send to it fails; when it finally
@@ -759,6 +842,7 @@ export class Room {
         other.serializeAttachment(null);
         this.annotationRate.delete(other);
         this.minutesRate.delete(other);
+        this.minutesBytes.delete(other);
         void this.reportPresence('leave', {
           country: prev.geo?.country ?? null,
           durationMs: prev.connectedAt ? Date.now() - prev.connectedAt : 0,
@@ -791,6 +875,7 @@ export class Room {
         displayName: msg.displayName,
         geo,
         connectedAt,
+        ...(sessionKey ? { sessionKey } : {}),
       });
       // Report to presence/stats (anonymous: only country + duration counters).
       void this.reportPresence('join', { country: geo?.country ?? null });
@@ -827,6 +912,7 @@ export class Room {
           durationMs,
         });
         ws.serializeAttachment(null);
+        this.rememberKey(att);
         this.broadcastExcept(ws, { type: 'peer-left', peerId: att.peerId });
       }
       try {
@@ -887,6 +973,7 @@ export class Room {
       const att = this.getAttachment(ws);
       if (!att?.peerId || msg.from !== att.peerId) return;
       if (!isValidMinutes(msg)) return;
+      if (!this.allowMinutesBytes(ws, msg.data.length)) return;
       const out: Record<string, unknown> = {
         type: 'minutes',
         from: att.peerId,
@@ -921,6 +1008,16 @@ export class Room {
     }
   }
 
+  /** Remember who owned a peerId for a short while after it left (see recentKeys). */
+  private rememberKey(att: NonNullable<Attachment>): void {
+    if (!att.sessionKey) return;
+    const now = Date.now();
+    if (this.recentKeys.size > 200) {
+      for (const [id, v] of this.recentKeys) if (v.until <= now) this.recentKeys.delete(id);
+    }
+    this.recentKeys.set(att.peerId, { key: att.sessionKey, until: now + RECENT_KEY_TTL_MS });
+  }
+
   /**
    * Fixed one-second window, per connection. Clients throttle themselves well
    * below these caps; they only stop a runaway or hostile sender.
@@ -941,6 +1038,19 @@ export class Room {
     return true;
   }
 
+  /** Per-connection cap on how many bytes of minutes data one socket may push per second. */
+  private allowMinutesBytes(ws: WebSocket, len: number): boolean {
+    const now = Date.now();
+    const bucket = this.minutesBytes.get(ws);
+    if (!bucket || now - bucket.windowStart >= 1000) {
+      this.minutesBytes.set(ws, { bytes: len, windowStart: now });
+      return true;
+    }
+    if (bucket.bytes + len > MINUTES_MAX_BYTES_PER_SEC) return false;
+    bucket.bytes += len;
+    return true;
+  }
+
   /** Per-connection cap on annotation messages. */
   private allowAnnotation(ws: WebSocket): boolean {
     return this.allowRate(this.annotationRate, ws, ANNOTATION_MAX_PER_SEC);
@@ -956,6 +1066,7 @@ export class Room {
     console.log('[Room] webSocketClose', { code, reason, wasClean, peerId: att?.peerId });
     this.annotationRate.delete(ws);
     this.minutesRate.delete(ws);
+    this.minutesBytes.delete(ws);
     if (att) {
       const durationMs = att.connectedAt ? Date.now() - att.connectedAt : 0;
       void this.reportPresence('leave', {
@@ -963,6 +1074,7 @@ export class Room {
         durationMs,
       });
       ws.serializeAttachment(null);
+      this.rememberKey(att);
       this.broadcastExcept(ws, { type: 'peer-left', peerId: att.peerId });
     }
     this.broadcastSync();
@@ -1265,38 +1377,37 @@ export class SettingsDO {
     const path = new URL(request.url).pathname;
     if (path === '/get' && request.method === 'GET') return this.get();
     if (path === '/set' && request.method === 'POST') return this.set(request);
+    if (path === '/verify' && request.method === 'POST') return this.verify(request);
     return new Response('Not found', { status: 404 });
   }
 
-  private async get(): Promise<Response> {
-    const rec = await this.state.storage.get<CompanyRecord>('company');
-    return jsonResponse(200, {
-      name: rec?.name ?? '',
-      docNo: rec?.docNo ?? '',
-      logo: rec?.logo ?? null,
-      updatedAt: rec?.updatedAt ?? 0,
-    });
-  }
-
-  private async set(request: Request): Promise<Response> {
-    let body: any;
+  /**
+   * Admin password check for every endpoint that takes ADMIN_PASSWORD (bugs, auth, presence, stats, company).
+   * They all share one failed-attempt counter per client, so guessing is bounded no matter which door is used.
+   */
+  private async verify(request: Request): Promise<Response> {
+    let body: any = null;
     try {
       body = JSON.parse(await request.text());
     } catch {
-      return jsonResponse(400, { error: 'invalid json' });
+      // treated as an empty password below
     }
-    if (!body || typeof body !== 'object' || Array.isArray(body)) {
-      return jsonResponse(400, { error: 'invalid body' });
-    }
+    const given = body && typeof body.password === 'string' ? body.password : '';
+    const denied = await this.checkAdmin(given, request.headers.get('X-Client-Ip') ?? 'unknown');
+    return denied ?? jsonResponse(200, { ok: true });
+  }
 
+  /**
+   * null = password accepted (and the client's failure counter cleared);
+   * otherwise the Response to send: 503 not configured, 429 locked out, 403 wrong.
+   */
+  private async checkAdmin(given: string, clientIp: string): Promise<Response | null> {
     const admin = (this.env.ADMIN_PASSWORD ?? '').trim();
     if (!admin) return jsonResponse(503, { error: 'admin not configured' });
 
     // Everything that needs a non-storage await comes first. The storage steps
     // below then run back to back, so concurrent attempts cannot both read the
     // same failure count and undercount.
-    const given = typeof body.password === 'string' ? body.password : '';
-    const clientIp = request.headers.get('X-Client-Ip') ?? 'unknown';
     const [match, ipDigest] = await Promise.all([safeEqual(given, admin), sha256(clientIp)]);
     // Only a digest of the address is kept, and only for the length of the window.
     const failKey =
@@ -1329,6 +1440,33 @@ export class SettingsDO {
       return jsonResponse(403, { error: 'forbidden' });
     }
     if (stored) await this.state.storage.delete(failKey);
+    return null;
+  }
+
+  private async get(): Promise<Response> {
+    const rec = await this.state.storage.get<CompanyRecord>('company');
+    return jsonResponse(200, {
+      name: rec?.name ?? '',
+      docNo: rec?.docNo ?? '',
+      logo: rec?.logo ?? null,
+      updatedAt: rec?.updatedAt ?? 0,
+    });
+  }
+
+  private async set(request: Request): Promise<Response> {
+    let body: any;
+    try {
+      body = JSON.parse(await request.text());
+    } catch {
+      return jsonResponse(400, { error: 'invalid json' });
+    }
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return jsonResponse(400, { error: 'invalid body' });
+    }
+
+    const given = typeof body.password === 'string' ? body.password : '';
+    const denied = await this.checkAdmin(given, request.headers.get('X-Client-Ip') ?? 'unknown');
+    if (denied) return denied;
 
     // Authenticated. A request that is wrong in shape is the caller's bug, not an attack.
     const { name, docNo, logo } = body;

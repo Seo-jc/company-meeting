@@ -3,6 +3,7 @@ import { pickT } from '../i18n';
 const SIGNALING_HTTP =
   (import.meta as unknown as { env?: { VITE_SIGNALING_URL?: string } }).env
     ?.VITE_SIGNALING_URL?.replace(/^wss:/i, 'https:')
+    ?.replace(/^ws:/i, 'http:') // 로컬 시험 서버(ws://127.0.0.1:8787)로 관리자 로그인·회사 양식을 시험할 수 있게 (운영 wss:// 는 그대로)
     ?.replace(/\/?$/, '') ?? 'https://meet-sig.jcseo.workers.dev';
 
 const STR = {

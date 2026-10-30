@@ -7,6 +7,7 @@ import BugViewerModal from './BugViewerModal';
 import FeedbackModal from './FeedbackModal';
 import PromoteRenameDialog from './PromoteRenameDialog';
 import PresenceModal from './PresenceModal';
+import CompanyFormSettings from './CompanyFormSettings';
 import {
   fetchBugs,
   getStoredPassword,
@@ -20,6 +21,8 @@ const STR = {
     presenceTip: '접속 현황 보기 (관리자 전용)',
     bugs: '🐞 버그 확인',
     bugsTip: '버그 보고서 보기 (관리자 전용)',
+    companyForm: '🏢 회사 양식',
+    companyFormTip: '회의록 엑셀의 회사 로고·회사명·문서번호 설정 (관리자 전용)',
     subtitle: '사내 음성 회의 + 화면 공유',
     nameLabel: '이름',
     namePlaceholder: '회의에서 표시될 이름',
@@ -69,6 +72,8 @@ const STR = {
     presenceTip: 'View presence (admin only)',
     bugs: '🐞 Bugs',
     bugsTip: 'View bug reports (admin only)',
+    companyForm: '🏢 Company form',
+    companyFormTip: 'Set the company logo, name and document no. used in the minutes Excel (admin only)',
     subtitle: 'In-house voice meeting + screen share',
     nameLabel: 'Name',
     namePlaceholder: 'Name shown in the meeting',
@@ -246,6 +251,7 @@ export default function Lobby({ onJoin }: Props) {
   const [showAdminLogin, setShowAdminLogin] = useState(false);
   const [showBugViewer, setShowBugViewer] = useState(false);
   const [showPresence, setShowPresence] = useState(false);
+  const [showCompanyForm, setShowCompanyForm] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [renamingMeeting, setRenamingMeeting] = useState<RecentMeeting | null>(null);
   const [bugUnread, setBugUnread] = useState(0);
@@ -491,6 +497,14 @@ export default function Lobby({ onJoin }: Props) {
               title={t.presenceTip}
             >
               {t.presence}
+            </button>
+            <button
+              type="button"
+              className="lobby-bug-btn"
+              onClick={() => setShowCompanyForm(true)}
+              title={t.companyFormTip}
+            >
+              {t.companyForm}
             </button>
             <button
               type="button"
@@ -790,6 +804,13 @@ export default function Lobby({ onJoin }: Props) {
         <PresenceModal
           password={adminPassword}
           onClose={() => setShowPresence(false)}
+        />
+      )}
+      {showCompanyForm && adminPassword && (
+        <CompanyFormSettings
+          password={adminPassword}
+          onClose={() => setShowCompanyForm(false)}
+          onAuthFailed={() => clearStoredPassword()}
         />
       )}
       {showBugViewer && adminPassword && (
