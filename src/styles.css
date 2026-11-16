@@ -257,6 +257,17 @@ html, body, #root {
   align-items: center;
 }
 
+/* With the admin buttons the row grew wide enough to cover the top of the
+   lobby's right column, so stack them down the right edge instead. */
+.lobby-admin-bar.is-admin {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.lobby-admin-bar.is-admin > button {
+  justify-content: center;
+}
+
 .lobby-lang-btn {
   display: inline-flex;
   align-items: center;

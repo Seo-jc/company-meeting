@@ -23,6 +23,8 @@ const STR = {
     bugsTip: '버그 보고서 보기 (관리자 전용)',
     companyForm: '🏢 회사 양식',
     companyFormTip: '회의록 엑셀의 회사 로고·회사명·문서번호 설정 (관리자 전용)',
+    adminLogout: '🔒 관리자 나가기',
+    adminLogoutTip: '관리자 모드를 끝냅니다 (이 PC에 기억된 관리자 비밀번호도 지웁니다)',
     subtitle: '사내 음성 회의 + 화면 공유',
     nameLabel: '이름',
     namePlaceholder: '회의에서 표시될 이름',
@@ -74,6 +76,8 @@ const STR = {
     bugsTip: 'View bug reports (admin only)',
     companyForm: '🏢 Company form',
     companyFormTip: 'Set the company logo, name and document no. used in the minutes Excel (admin only)',
+    adminLogout: '🔒 Sign out admin',
+    adminLogoutTip: 'Leave admin mode (also forgets the admin password saved on this PC)',
     subtitle: 'In-house voice meeting + screen share',
     nameLabel: 'Name',
     namePlaceholder: 'Name shown in the meeting',
@@ -266,16 +270,30 @@ export default function Lobby({ onJoin }: Props) {
     if (lastName) setDisplayName(lastName);
   }, []);
 
-  // Hidden activation shortcut: Ctrl+Shift+B opens admin login (or viewer if already auth'd)
+  // Hidden activation shortcut: Ctrl+Shift+A (same as the other Pik apps) or
+  // the original Ctrl+Shift+B opens admin login (or viewer if already auth'd).
+  // A Latin letter is matched as typed, so other keyboard layouts keep their own
+  // keys; anything else (the Korean IME, or a keydown with no `key` at all)
+  // falls back to the physical A/B key. Alt is excluded because AltGr reports
+  // as Ctrl+Alt and is used to type letters on some layouts.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && (e.key === 'B' || e.key === 'b')) {
-        e.preventDefault();
-        if (adminPassword) {
-          setShowBugViewer(true);
-        } else {
-          setShowAdminLogin(true);
-        }
+      if (!e.ctrlKey || !e.shiftKey || e.altKey || e.metaKey) return;
+      // Leave a Korean syllable that is still being composed alone.
+      if (e.isComposing) return;
+      const k = typeof e.key === 'string' ? e.key.toLowerCase() : '';
+      const hit = /^[a-z]$/.test(k)
+        ? k === 'a' || k === 'b'
+        : e.code === 'KeyA' || e.code === 'KeyB';
+      if (!hit) return;
+      // Don't stack an admin window over any open dialog (the lobby's own and
+      // App-level ones such as "what's new" all mark themselves aria-modal).
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+      e.preventDefault();
+      if (adminPassword) {
+        setShowBugViewer(true);
+      } else {
+        setShowAdminLogin(true);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -305,6 +323,17 @@ export default function Lobby({ onJoin }: Props) {
       window.clearInterval(t);
     };
   }, [adminPassword]);
+
+  // Leaving admin mode forgets the saved password too, so the PC is not left
+  // signed in for the next person.
+  const handleAdminLogout = () => {
+    clearStoredPassword();
+    setAdminPassword(null);
+    setBugUnread(0);
+    setShowBugViewer(false);
+    setShowPresence(false);
+    setShowCompanyForm(false);
+  };
 
   const recordRecent = (name: string, code: string) => {
     const next = withRecent(recentMeetings, { name, code });
@@ -479,7 +508,7 @@ export default function Lobby({ onJoin }: Props) {
 
   return (
     <div className="lobby">
-      <div className="lobby-admin-bar">
+      <div className={`lobby-admin-bar ${adminPassword ? 'is-admin' : ''}`}>
         <button
           type="button"
           className="lobby-lang-btn"
@@ -518,6 +547,14 @@ export default function Lobby({ onJoin }: Props) {
                   {bugUnread > 99 ? '99+' : bugUnread}
                 </span>
               )}
+            </button>
+            <button
+              type="button"
+              className="lobby-bug-btn"
+              onClick={handleAdminLogout}
+              title={t.adminLogoutTip}
+            >
+              {t.adminLogout}
             </button>
           </>
         )}

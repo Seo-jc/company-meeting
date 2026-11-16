@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import { setStoredPassword, verifyPassword } from '../lib/adminAuth';
 import { useT } from '../i18n';
 
@@ -37,6 +37,15 @@ export default function AdminLogin({ onSuccess, onCancel }: Props) {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // Closing the window while the password is still being checked cancels the
+  // login: a late "ok" must not save the password or sign in.
+  const closedRef = useRef(false);
+  useEffect(() => {
+    closedRef.current = false;
+    return () => {
+      closedRef.current = true;
+    };
+  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -44,6 +53,7 @@ export default function AdminLogin({ onSuccess, onCancel }: Props) {
     setBusy(true);
     setError('');
     const ok = await verifyPassword(password);
+    if (closedRef.current) return;
     setBusy(false);
     if (ok) {
       setStoredPassword(password);

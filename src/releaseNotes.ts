@@ -41,6 +41,14 @@ export function localizeNote(n: ReleaseNote, lang: Lang): LocalReleaseNote {
  */
 export const RELEASE_NOTES: ReleaseNote[] = [
   {
+    version: '1.13.1',
+    date: '2026-11-16',
+    fixed: {
+      ko: ['일부 버그를 수정했습니다'],
+      en: ['Fixed some bugs'],
+    },
+  },
+  {
     version: '1.13.0',
     date: '2026-10-30',
     highlight: {
